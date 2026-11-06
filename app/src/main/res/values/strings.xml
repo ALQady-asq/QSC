@@ -102,6 +102,8 @@
     <string name="video_resolution_480p">480p</string>
     <string name="video_frame_rate_label">Frame rate</string>
     <string name="video_frame_rate_auto">Automatic</string>
+    <string name="video_frame_rate_144">144 fps</string>
+    <string name="notification_recording_target_fps">Recording target: %1$d fps</string>
     <string name="video_frame_rate_120">120 fps</string>
     <string name="video_frame_rate_90">90 fps</string>
     <string name="video_frame_rate_60">60 fps</string>
@@ -249,6 +251,7 @@
     <string name="overlay_resume">Resume recording</string>
     <string name="overlay_mute">Mute microphone</string>
     <string name="overlay_unmute">Unmute microphone</string>
+    <string name="overlay_status_paused">Recording paused</string>
     <string name="overlay_stop">Stop recording</string>
     <string name="overlay_collapse">Collapse recording controls</string>
     <string name="overlay_expand">Expand recording controls</string>
