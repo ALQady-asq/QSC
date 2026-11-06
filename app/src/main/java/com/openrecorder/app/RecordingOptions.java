@@ -23,6 +23,7 @@ final class RecordingOptions {
     static final int DEFAULT_VIDEO_RESOLUTION = VIDEO_RESOLUTION_NATIVE;
 
     static final int VIDEO_FRAME_RATE_AUTO = 0;
+    static final int VIDEO_FRAME_RATE_144_FPS = 144;
     static final int VIDEO_FRAME_RATE_120_FPS = 120;
     static final int VIDEO_FRAME_RATE_90_FPS = 90;
     static final int VIDEO_FRAME_RATE_60_FPS = 60;
@@ -83,7 +84,8 @@ final class RecordingOptions {
     }
 
     static int normalizeVideoFrameRate(int value) {
-        if (value == VIDEO_FRAME_RATE_120_FPS
+        if (value == VIDEO_FRAME_RATE_144_FPS
+                || value == VIDEO_FRAME_RATE_120_FPS
                 || value == VIDEO_FRAME_RATE_90_FPS
                 || value == VIDEO_FRAME_RATE_60_FPS
                 || value == VIDEO_FRAME_RATE_50_FPS

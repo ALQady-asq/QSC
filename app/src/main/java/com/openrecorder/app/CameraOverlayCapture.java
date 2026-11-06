@@ -89,6 +89,13 @@ final class CameraOverlayCapture implements LifecycleOwner {
         }, main);
     }
 
+    void updatePreviewRotation() {
+        Display display = view.getDisplay();
+        if (preview != null && display != null) {
+            preview.setTargetRotation(display.getRotation());
+        }
+    }
+
     private boolean startOriginal(int rotation) {
         try {
             Recorder recorder = new Recorder.Builder()

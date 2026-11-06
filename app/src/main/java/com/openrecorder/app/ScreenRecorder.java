@@ -552,6 +552,10 @@ final class ScreenRecorder {
                 + (force16By9Letterboxing ? ", 16:9 letterbox" : ""));
     }
 
+    int getConfiguredFrameRate() {
+        return videoRecorder.getConfiguredFrameRate();
+    }
+
     private float getSourceRefreshRate() {
         try {
             DisplayManager displayManager = context.getSystemService(DisplayManager.class);

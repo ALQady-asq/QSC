@@ -17,7 +17,10 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import androidx.camera.view.PreviewView;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -43,11 +46,13 @@ final class RecordingOverlay {
                     main.post(applyCameraLayout);
                 }
             };
-    private LinearLayout controls;
-    private TextView timer;
+    private FrameLayout controls;
+    private LinearLayout capsule;
+    private LinearLayout card;
+    private TextView capsuleTimer;
+    private TextView cardTimer;
+    private TextView cardStatus;
     private TextView pauseButton;
-    private View stopButton;
-    private TextView microphoneButton;
     private boolean microphoneMuted;
     private PreviewView cameraView;
     private CameraOverlayCapture camera;
@@ -56,22 +61,23 @@ final class RecordingOverlay {
     private Rect cameraArea;
     private boolean landscape;
     private float cameraSize;
-    private boolean paused;
     private long lastDisplayedSecond = -1;
-    private final Runnable autoCollapse = () -> setCollapsed(true);
     private boolean collapsed;
+    private boolean paused;
+    private boolean statusBarVisible = true;
     private final Runnable tick = new Runnable() {
         @Override public void run() {
-            if (timer == null) return;
+            if (controls == null) return;
             long seconds = elapsed.getAsLong() / 1_000L;
             if (seconds != lastDisplayedSecond) {
                 lastDisplayedSecond = seconds;
                 String time = seconds >= 3600
                         ? String.format(Locale.ROOT, "%d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
                         : String.format(Locale.ROOT, "%02d:%02d", seconds / 60, seconds % 60);
-                timer.setText(time);
+                capsuleTimer.setText(time);
+                cardTimer.setText(time);
             }
-            main.postDelayed(this, 250);
+            main.postDelayed(this, 1_000L - elapsed.getAsLong() % 1_000L);
         }
     };
 
@@ -92,36 +98,78 @@ final class RecordingOverlay {
     }
 
     void showControls(Runnable pauseOrResume, Runnable stop, Consumer<Boolean> mute) {
-        controls = new LinearLayout(context);
-        controls.setGravity(Gravity.CENTER_VERTICAL);
-        controls.setPadding(dp(4), dp(3), dp(4), dp(3));
-        controls.setBackground(background(0xee102d36, 26));
-        pauseButton = button("Ⅱ", R.string.overlay_pause, 0xff23505a, pauseOrResume);
-        timer = new TextView(context);
-        timer.setTextColor(Color.WHITE);
-        timer.setTextSize(13);
-        timer.setGravity(Gravity.CENTER);
-        timer.setPadding(dp(8), 0, dp(8), 0);
-        timer.setOnClickListener(view -> toggleCollapsed());
-        timer.setContentDescription(context.getString(R.string.overlay_collapse));
-        stopButton = button("■", R.string.overlay_stop, 0xffbf2639, stop);
-        controls.addView(pauseButton, new LinearLayout.LayoutParams(dp(40), dp(40)));
+        controls = new FrameLayout(context);
+        controls.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        controls.setOnTouchListener((view, event) -> {
+            if (event.getActionMasked() == MotionEvent.ACTION_OUTSIDE && !collapsed) {
+                setCollapsed(true);
+            }
+            return false;
+        });
+
+        capsule = new LinearLayout(context);
+        capsule.setGravity(Gravity.CENTER_VERTICAL);
+        capsule.setBackground(background(0xffc83f32, 20));
+        capsule.setPadding(dp(8), 0, dp(3), 0);
+        capsuleTimer = text("00:00", 14, Color.WHITE);
+        capsuleTimer.setContentDescription(context.getString(R.string.overlay_expand));
+        capsuleTimer.setOnClickListener(view -> setCollapsed(false));
+        capsule.addView(capsuleTimer, new LinearLayout.LayoutParams(dp(49), dp(36)));
+        capsule.addView(stopButton(stop, Color.WHITE),
+                new LinearLayout.LayoutParams(dp(32), dp(36)));
+
+        card = new LinearLayout(context);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(12), dp(6), dp(12), dp(6));
+        card.setBackground(background(0xff242527, 18));
+        card.addView(stopButton(stop, 0xffff5147), controlSize());
         if (mute != null) {
-            microphoneButton = button("MIC", R.string.overlay_mute, 0xff23505a, () -> {
+            ImageButton microphone = new ImageButton(context);
+            microphone.setImageResource(android.R.drawable.ic_btn_speak_now);
+            microphone.setColorFilter(Color.BLACK);
+            microphone.setBackground(background(0xffe4e4e4, 20));
+            microphone.setContentDescription(context.getString(R.string.overlay_mute));
+            microphone.setOnClickListener(view -> {
                 microphoneMuted = !microphoneMuted;
-                microphoneButton.setText(microphoneMuted ? "×MIC" : "MIC");
-                microphoneButton.setContentDescription(context.getString(
+                microphone.setAlpha(microphoneMuted ? 0.55f : 1f);
+                microphone.setContentDescription(context.getString(
                         microphoneMuted ? R.string.overlay_unmute : R.string.overlay_mute));
                 mute.accept(microphoneMuted);
             });
-            microphoneButton.setTextSize(10);
-            controls.addView(microphoneButton, new LinearLayout.LayoutParams(dp(40), dp(40)));
+            card.addView(microphone, controlSize());
         }
-        controls.addView(timer, new LinearLayout.LayoutParams(-2, dp(40)));
-        controls.addView(stopButton, new LinearLayout.LayoutParams(dp(40), dp(40)));
+        pauseButton = button("Ⅱ", R.string.overlay_pause, 0xff414244, pauseOrResume);
+        card.addView(pauseButton, controlSize());
+        card.addView(new View(context), new LinearLayout.LayoutParams(0, 1, 1));
+
+        LinearLayout status = new LinearLayout(context);
+        status.setOrientation(LinearLayout.VERTICAL);
+        status.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        status.setPadding(dp(8), 0, dp(4), 0);
+        status.setContentDescription(context.getString(R.string.overlay_collapse));
+        status.setOnClickListener(view -> setCollapsed(true));
+        cardTimer = text("00:00", 14, Color.WHITE);
+        cardStatus = text(context.getString(R.string.notification_recording_title), 12, 0xffc9c9c9);
+        cardStatus.setSingleLine(true);
+        cardStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        status.addView(cardTimer);
+        status.addView(cardStatus);
+        card.addView(status, new LinearLayout.LayoutParams(-2, dp(44)));
+        controls.addView(capsule, new FrameLayout.LayoutParams(-2, -2));
+        controls.addView(card, new FrameLayout.LayoutParams(-1, -2));
         controlsLayout = layout(-2, -2, Gravity.TOP | Gravity.RIGHT);
-        controlsLayout.y = dp(4);
-        setWindowVisible(null, controlsLayout, !privateControls);
+        updateControlsVisibility();
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            controls.setOnApplyWindowInsetsListener((view, insets) -> {
+                boolean visible = insets.isVisible(WindowInsets.Type.statusBars());
+                if (statusBarVisible != visible) {
+                    statusBarVisible = visible;
+                    updateControlsVisibility();
+                    if (!visible) setCollapsed(true);
+                }
+                return view.onApplyWindowInsets(insets);
+            });
+        }
         setCollapsed(true);
         try {
             windows.addView(controls, controlsLayout);
@@ -129,7 +177,6 @@ final class RecordingOverlay {
         } catch (RuntimeException error) {
             Log.w("RecordingOverlay", "Could not show recording controls", error);
             controls = null;
-            timer = null;
         }
     }
 
@@ -162,7 +209,9 @@ final class RecordingOverlay {
     void restoreCameraLayout() {
         if (cameraView == null) return;
         cameraArea = bounds();
-        landscape = cameraArea.width() >= cameraArea.height();
+        landscape = context.getResources().getConfiguration().orientation
+                != android.content.res.Configuration.ORIENTATION_PORTRAIT;
+        if (camera != null) camera.updatePreviewRotation();
         OverlaySettings.CameraLayout saved = settings.cameraLayout(landscape);
         cameraSize = saved.size();
         resizeCamera();
@@ -227,8 +276,10 @@ final class RecordingOverlay {
 
     private void resizeCamera() {
         int shortEdge = Math.min(cameraArea.width(), cameraArea.height());
-        cameraLayout.width = Math.round(shortEdge * cameraSize / 100f);
-        cameraLayout.height = cameraLayout.width * 9 / 16;
+        int longSide = Math.round(shortEdge * cameraSize / 100f);
+        int shortSide = Math.round(longSide / OverlaySettings.CAMERA_ASPECT_RATIO);
+        cameraLayout.width = landscape ? longSide : shortSide;
+        cameraLayout.height = landscape ? shortSide : longSide;
     }
 
     private void refreshCamera() {
@@ -260,23 +311,29 @@ final class RecordingOverlay {
         if (view != null && view.isAttachedToWindow()) windows.updateViewLayout(view, layout);
     }
 
+    private void updateControlsVisibility() {
+        setWindowVisible(controls, controlsLayout, statusBarVisible && (!privateControls || paused));
+    }
+
     void setPaused(boolean paused) {
         this.paused = paused;
-        if (privateControls && controls != null) setWindowVisible(controls, controlsLayout, paused);
+        if (controls != null) updateControlsVisibility();
         if (privateCamera && cameraView != null) setWindowVisible(cameraView, cameraLayout, paused);
         if (paused && controls != null) setCollapsed(false);
+        if (cardStatus != null) {
+            cardStatus.setText(paused ? R.string.overlay_status_paused
+                    : R.string.notification_recording_title);
+        }
         if (pauseButton != null) {
             pauseButton.setText(paused ? "▶" : "Ⅱ");
             pauseButton.setContentDescription(context.getString(
                     paused ? R.string.overlay_resume : R.string.overlay_pause));
         }
         if (camera != null) camera.setPaused(paused);
-        if (!paused && controls != null && !collapsed) scheduleCollapse();
     }
 
     void close(boolean saveCamera) {
         main.removeCallbacks(tick);
-        main.removeCallbacks(autoCollapse);
         main.removeCallbacks(applyCameraLayout);
         settings.removeListener(cameraLayoutListener);
         if (camera != null) camera.close(saveCamera);
@@ -285,7 +342,6 @@ final class RecordingOverlay {
         camera = null;
         cameraView = null;
         controls = null;
-        timer = null;
     }
 
     private void removeView(View view) {
@@ -297,39 +353,55 @@ final class RecordingOverlay {
         }
     }
 
-    private void toggleCollapsed() {
-        setCollapsed(!collapsed);
-    }
-
     private void setCollapsed(boolean collapsed) {
         if (controls == null) return;
         this.collapsed = collapsed;
-        pauseButton.setVisibility(collapsed ? View.GONE : View.VISIBLE);
-        stopButton.setVisibility(collapsed ? View.GONE : View.VISIBLE);
-        if (microphoneButton != null) {
-            microphoneButton.setVisibility(collapsed ? View.GONE : View.VISIBLE);
-        }
-        timer.setContentDescription(context.getString(
-                collapsed ? R.string.overlay_expand : R.string.overlay_collapse));
-        timer.setBackground(collapsed ? background(0xffbf2639, 22) : null);
-        controlsLayout.gravity = Gravity.TOP
-                | (collapsed ? Gravity.RIGHT : Gravity.CENTER_HORIZONTAL);
+        capsule.setVisibility(collapsed ? View.VISIBLE : View.GONE);
+        card.setVisibility(collapsed ? View.GONE : View.VISIBLE);
+        controlsLayout.gravity = Gravity.TOP | (collapsed ? Gravity.RIGHT : Gravity.CENTER_HORIZONTAL);
         controlsLayout.x = collapsed ? dp(12) : 0;
+        controlsLayout.y = collapsed ? dp(3) : dp(7);
+        Rect available = bounds();
+        int width = available.width();
+        float cardFraction = width >= available.height() ? 0.66f : 0.72f;
+        int cardWidth = Math.min(width - dp(16), Math.max(dp(290), Math.round(width * cardFraction)));
+        controlsLayout.width = collapsed ? -2 : cardWidth;
+        if (collapsed) {
+            controlsLayout.flags &= ~WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
+        } else {
+            controlsLayout.flags |= WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
+        }
         if (controls.isAttachedToWindow()) windows.updateViewLayout(controls, controlsLayout);
-        scheduleCollapse();
     }
 
-    private void scheduleCollapse() {
-        main.removeCallbacks(autoCollapse);
-        if (!collapsed && !paused) main.postDelayed(autoCollapse, 7_000L);
+    void onConfigurationChanged() {
+        setCollapsed(collapsed);
+        restoreCameraLayout();
     }
 
-    private TextView button(String text, int description, int color, Runnable action) {
+    private LinearLayout.LayoutParams controlSize() {
+        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(dp(40), dp(40));
+        size.rightMargin = dp(5);
+        return size;
+    }
+
+    private TextView text(String label, int size, int color) {
         TextView view = new TextView(context);
-        view.setText(text);
-        view.setTextSize(16);
-        view.setTextColor(Color.WHITE);
+        view.setText(label);
+        view.setTextSize(size);
+        view.setTextColor(color);
         view.setGravity(Gravity.CENTER);
+        return view;
+    }
+
+    private TextView stopButton(Runnable action, int color) {
+        TextView view = button("■", R.string.overlay_stop, Color.TRANSPARENT, action);
+        view.setTextColor(color);
+        return view;
+    }
+
+    private TextView button(String label, int description, int color, Runnable action) {
+        TextView view = text(label, 16, Color.WHITE);
         view.setBackground(background(color, 22));
         view.setContentDescription(context.getString(description));
         view.setOnClickListener(ignored -> action.run());

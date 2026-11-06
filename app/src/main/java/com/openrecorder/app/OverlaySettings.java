@@ -43,6 +43,8 @@ final class OverlaySettings {
 
     record CameraLayout(float x, float y, int size) {}
 
+    static final float CAMERA_ASPECT_RATIO = 16f / 9f;
+
     CameraLayout cameraLayout(boolean landscape) {
         String prefix = landscape ? "landscape_" : "portrait_";
         int corner = Math.max(0, Math.min(3, preferences.getInt("camera_position", 3)));
