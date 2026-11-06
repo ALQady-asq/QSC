@@ -893,6 +893,7 @@ class MainActivity : ComponentActivity() {
 
         val VIDEO_FRAME_RATES = listOf(
             RecordingOptions.VIDEO_FRAME_RATE_AUTO,
+            RecordingOptions.VIDEO_FRAME_RATE_144_FPS,
             RecordingOptions.VIDEO_FRAME_RATE_120_FPS,
             RecordingOptions.VIDEO_FRAME_RATE_90_FPS,
             RecordingOptions.VIDEO_FRAME_RATE_60_FPS,

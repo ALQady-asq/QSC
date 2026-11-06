@@ -75,6 +75,7 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
     private volatile Runnable pendingStart;
     private Runnable pendingNotificationRestore;
     private volatile boolean paused;
+    private volatile int configuredFrameRate;
     private volatile long recordingStartedAtElapsedRealtime;
     private volatile long pausedAtElapsedRealtime;
     private volatile long totalPausedDurationMs;
@@ -372,6 +373,7 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
 
         try {
             pendingRecorder.start();
+            configuredFrameRate = pendingRecorder.getConfiguredFrameRate();
             recorderStarted.set(true);
             recordingStartedAtElapsedRealtime = SystemClock.elapsedRealtime();
             pausedAtElapsedRealtime = 0L;
@@ -514,7 +516,9 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
                 builder.setContentText(getString(R.string.notification_paused_time, elapsed))
                         .setShowWhen(false);
             } else {
-                builder.setContentText(getString(R.string.notification_recording_text))
+                builder.setContentText(configuredFrameRate > 0
+                                ? getString(R.string.notification_recording_target_fps, configuredFrameRate)
+                                : getString(R.string.notification_recording_text))
                         .setWhen(System.currentTimeMillis() - getActiveRecordingDurationMs())
                         .setUsesChronometer(true)
                         .setShowWhen(true);
@@ -887,7 +891,7 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
     public void onConfigurationChanged(android.content.res.Configuration configuration) {
         super.onConfigurationChanged(configuration);
         if (overlay != null) mainHandler.post(() -> {
-            if (overlay != null) overlay.restoreCameraLayout();
+            if (overlay != null) overlay.onConfigurationChanged();
         });
     }
 

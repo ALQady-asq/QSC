@@ -3,6 +3,7 @@
 package com.openrecorder.app
 
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.aspectRatio
@@ -20,6 +21,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -30,7 +32,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 /** Edits the normalized layout used by the live camera window for either orientation. */
 @Composable
 internal fun CameraLayoutEditor(settings: OverlaySettings) {
-    var landscape by rememberSaveable { mutableStateOf(true) }
+    val displayLandscape = LocalConfiguration.current.orientation != Configuration.ORIENTATION_PORTRAIT
+    var landscape by rememberSaveable(displayLandscape) { mutableStateOf(displayLandscape) }
     var layout by remember(settings, landscape) { mutableStateOf(settings.cameraLayout(landscape)) }
 
     DisposableEffect(settings, landscape) {
@@ -64,8 +67,9 @@ internal fun CameraLayoutEditor(settings: OverlaySettings) {
             .aspectRatio(if (landscape) 35f / 23f else 23f / 35f)
             .pointerInput(landscape, layout.size()) {
                 detectTapGestures { point ->
-                    val cameraWidth = minOf(size.width, size.height) * layout.size() / 100f
-                    val cameraHeight = cameraWidth * 9f / 16f
+                    val (cameraWidth, cameraHeight) = cameraSize(
+                        minOf(size.width, size.height).toFloat(), layout.size(), landscape,
+                    )
                     val x = (point.x - cameraWidth / 2) / (size.width - cameraWidth).coerceAtLeast(1f)
                     val y = (point.y - cameraHeight / 2) / (size.height - cameraHeight).coerceAtLeast(1f)
                     save(OverlaySettings.CameraLayout(x.coerceIn(0f, 1f), y.coerceIn(0f, 1f), layout.size()))
@@ -73,8 +77,7 @@ internal fun CameraLayoutEditor(settings: OverlaySettings) {
             },
     ) {
         drawRoundRect(canvasColor, cornerRadius = CornerRadius(14.dp.toPx()))
-        val cameraWidth = size.minDimension * layout.size() / 100f
-        val cameraHeight = cameraWidth * 9f / 16f
+        val (cameraWidth, cameraHeight) = cameraSize(size.minDimension, layout.size(), landscape)
         drawRoundRect(
             color = cameraColor,
             topLeft = Offset(
@@ -107,4 +110,10 @@ internal fun CameraLayoutEditor(settings: OverlaySettings) {
         onValueChange = { layout = OverlaySettings.CameraLayout(layout.x(), it, layout.size()) },
         onValueChangeFinished = { save(layout) },
     )
+}
+
+private fun cameraSize(shortEdge: Float, percent: Int, landscape: Boolean): Size {
+    val longSide = shortEdge * percent / 100f
+    val shortSide = longSide / OverlaySettings.CAMERA_ASPECT_RATIO
+    return if (landscape) Size(longSide, shortSide) else Size(shortSide, longSide)
 }

@@ -4,7 +4,6 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -300,6 +299,9 @@ final class VideoTrackRecorder {
                         continue;
                     }
                     try {
+                        if (!supportsHighFrameRate(candidate, mimeType, frameRate)) {
+                            continue;
+                        }
                         configureEncoderWithFallback(candidate, mimeType, frameRate);
                         logConfiguredEncoder(candidate, frameRate);
                         return;
@@ -316,6 +318,20 @@ final class VideoTrackRecorder {
         throw new IOException(
                 "No encoder could be configured for the requested frame-rate fallbacks",
                 lastFailure);
+    }
+
+    private boolean supportsHighFrameRate(MediaCodecInfo codecInfo, String mimeType, int frameRate) {
+        if (frameRate <= RecordingOptions.VIDEO_FRAME_RATE_60_FPS) {
+            return true;
+        }
+        if (!codecInfo.isHardwareAccelerated()) {
+            return false;
+        }
+        MediaCodecInfo.VideoCapabilities capabilities =
+                codecInfo.getCapabilitiesForType(mimeType).getVideoCapabilities();
+        // Some hardware codecs advertise their rate limits only in landscape order.
+        return capabilities.areSizeAndRateSupported(width, height, frameRate)
+                || (height > width && capabilities.areSizeAndRateSupported(height, width, frameRate));
     }
 
     private void configureEncoderWithFallback(
@@ -339,7 +355,9 @@ final class VideoTrackRecorder {
         MediaCodec candidateCodec = null;
         Surface candidateSurface = null;
         try {
-            long frameIntervalUs = VideoTimestampNormalizer.frameIntervalUs(frameRate);
+            // Repeat idle frames without filling the gaps between normal 60 Hz display updates.
+            long repeatIntervalUs = VideoTimestampNormalizer.frameIntervalUs(
+                    Math.min(frameRate, RecordingOptions.VIDEO_FRAME_RATE_30_FPS));
             MediaFormat format = MediaFormat.createVideoFormat(mimeType, width, height);
             format.setInteger(
                     MediaFormat.KEY_COLOR_FORMAT,
@@ -351,22 +369,13 @@ final class VideoTrackRecorder {
                 format.setInteger(MediaFormat.KEY_PRIORITY, 0);
             }
             format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, I_FRAME_INTERVAL_SECONDS);
-            format.setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, frameIntervalUs);
+            format.setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, repeatIntervalUs);
             format.setFloat(MediaFormat.KEY_MAX_FPS_TO_ENCODER, frameRate);
 
             candidateCodec = MediaCodec.createByCodecName(codecInfo.getName());
             candidateCodec.setCallback(codecCallback, callbackHandler);
             candidateCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             candidateSurface = candidateCodec.createInputSurface();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                try {
-                    candidateSurface.setFrameRate(
-                            frameRate,
-                            Surface.FRAME_RATE_COMPATIBILITY_DEFAULT);
-                } catch (RuntimeException error) {
-                    Log.w(TAG, "Unable to apply the frame-rate hint to the input surface", error);
-                }
-            }
 
             codec = candidateCodec;
             inputSurface = candidateSurface;

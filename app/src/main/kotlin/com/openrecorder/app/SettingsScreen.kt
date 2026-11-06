@@ -269,6 +269,7 @@ internal fun SettingsScreen(
     val videoFrameRateOptions = remember(context) {
         listOf(
             context.getString(R.string.video_frame_rate_auto),
+            context.getString(R.string.video_frame_rate_144),
             context.getString(R.string.video_frame_rate_120),
             context.getString(R.string.video_frame_rate_90),
             context.getString(R.string.video_frame_rate_60),

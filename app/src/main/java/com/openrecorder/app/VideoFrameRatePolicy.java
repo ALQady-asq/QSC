@@ -4,6 +4,7 @@ package com.openrecorder.app;
 final class VideoFrameRatePolicy {
     private static final float DISPLAY_RATE_TOLERANCE_FPS = 1.0f;
     private static final int[] SUPPORTED_RATES_DESCENDING = {
+            RecordingOptions.VIDEO_FRAME_RATE_144_FPS,
             RecordingOptions.VIDEO_FRAME_RATE_120_FPS,
             RecordingOptions.VIDEO_FRAME_RATE_90_FPS,
             RecordingOptions.VIDEO_FRAME_RATE_60_FPS,
