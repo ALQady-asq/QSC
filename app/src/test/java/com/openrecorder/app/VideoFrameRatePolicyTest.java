@@ -10,6 +10,7 @@ public final class VideoFrameRatePolicyTest {
     public void everySupportedPreferenceIsPreserved() {
         int[] supportedFrameRates = {
                 RecordingOptions.VIDEO_FRAME_RATE_AUTO,
+                RecordingOptions.VIDEO_FRAME_RATE_144_FPS,
                 RecordingOptions.VIDEO_FRAME_RATE_120_FPS,
                 RecordingOptions.VIDEO_FRAME_RATE_90_FPS,
                 RecordingOptions.VIDEO_FRAME_RATE_60_FPS,
@@ -31,7 +32,7 @@ public final class VideoFrameRatePolicyTest {
 
     @Test
     public void automaticModeTracksTheDisplayUsingKnownProfiles() {
-        assertEquals(120, VideoFrameRatePolicy.resolvePreferredFrameRate(0, 144f));
+        assertEquals(144, VideoFrameRatePolicy.resolvePreferredFrameRate(0, 144f));
         assertEquals(120, VideoFrameRatePolicy.resolvePreferredFrameRate(0, 119.94f));
         assertEquals(90, VideoFrameRatePolicy.resolvePreferredFrameRate(0, 90f));
         assertEquals(60, VideoFrameRatePolicy.resolvePreferredFrameRate(0, 75f));
@@ -42,6 +43,9 @@ public final class VideoFrameRatePolicyTest {
 
     @Test
     public void fixedRateFallsBackWithoutExceedingTheRequest() {
+        assertArrayEquals(
+                new int[] {144, 120, 90, 60, 50, 30},
+                VideoFrameRatePolicy.fallbackCandidates(144, 60f));
         assertArrayEquals(
                 new int[] {120, 90, 60, 50, 30},
                 VideoFrameRatePolicy.fallbackCandidates(120, 60f));
