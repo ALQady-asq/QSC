@@ -25,6 +25,17 @@ class RecorderTileActivity : ComponentActivity() {
     private lateinit var recorderPreferences: RecorderPreferences
     private var permissionFlowStarted = false
 
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            ensureAudioPermissionAndRequestCapture()
+        } else {
+            showToast(R.string.camera_permission_denied, Toast.LENGTH_LONG)
+            finishWithoutAnimation()
+        }
+    }
+
     private val audioPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -78,6 +89,19 @@ class RecorderTileActivity : ComponentActivity() {
     }
 
     private fun ensureAudioPermissionAndRequestCapture() {
+        if (OverlaySettings(this).camera() != OverlaySettings.CAMERA_OFF) {
+            if (!android.provider.Settings.canDrawOverlays(this)) {
+                showToast(R.string.overlay_permission_required, Toast.LENGTH_LONG)
+                OverlaySettings.openPermission(this)
+                finishWithoutAnimation()
+                return
+            }
+            if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                return
+            }
+        }
+
         val videoCodec = recorderPreferences.loadVideoCodec()
         if (!ScreenRecorder.isVideoCodecSupported(videoCodec)) {
             val codecName = getString(
@@ -121,7 +145,7 @@ class RecorderTileActivity : ComponentActivity() {
 
     private fun requestCapturePermission() {
         try {
-            captureLauncher.launch(projectionManager.createScreenCaptureIntent())
+            captureLauncher.launch(OverlaySettings(this).captureIntent(projectionManager))
         } catch (_: RuntimeException) {
             showToast(R.string.capture_permission_unavailable, Toast.LENGTH_LONG)
             finishWithoutAnimation()

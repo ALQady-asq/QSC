@@ -80,6 +80,10 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
     private volatile long totalPausedDurationMs;
     private volatile boolean stopWhenLockScreen;
     private AudioSource audioSource = AudioSource.NONE;
+    private OverlaySettings overlaySettings;
+    private int cameraFacing;
+    private RecordingOverlay overlay;
+    private boolean resumeScheduled;
 
     private final BroadcastReceiver screenOffReceiver = new BroadcastReceiver() {
         @Override
@@ -234,8 +238,23 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
 
         audioSource = AudioSource.fromOrdinal(
                 intent.getIntExtra(EXTRA_AUDIO_SOURCE, AudioSource.NONE.ordinal()));
+        overlaySettings = new OverlaySettings(this);
+        cameraFacing = overlaySettings.camera();
+        if (!android.provider.Settings.canDrawOverlays(this)
+                || checkSelfPermission(android.Manifest.permission.CAMERA)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            cameraFacing = OverlaySettings.CAMERA_OFF;
+        }
         try {
-            startForegroundCompat(createRecordingNotification(true));
+            Notification preparing = createRecordingNotification(true);
+            try {
+                startForegroundCompat(preparing);
+            } catch (SecurityException error) {
+                if (cameraFacing == OverlaySettings.CAMERA_OFF) throw error;
+                cameraFacing = OverlaySettings.CAMERA_OFF;
+                startForegroundCompat(preparing);
+                Toast.makeText(this, R.string.camera_unavailable, Toast.LENGTH_LONG).show();
+            }
             setRecordingState(RecordingState.PREPARING);
 
             int resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0);
@@ -281,6 +300,7 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
                     resultData,
                     audioSource,
                     sampleRate,
+                    overlaySettings.audioEncoding(),
                     videoResolution,
                     videoFrameRate,
                     force16By9Letterboxing,
@@ -359,6 +379,17 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
             paused = false;
             if (!stopping.get() && !finished.get()) {
                 setRecordingState(RecordingState.RECORDING);
+                runOnMainThread(() -> {
+                    try {
+                        openOverlay(pendingRecorder);
+                    } catch (RuntimeException error) {
+                        Log.w(TAG, "Unable to open recording overlay", error);
+                        closeOverlay(false);
+                        if (cameraFacing != OverlaySettings.CAMERA_OFF) {
+                            Toast.makeText(this, R.string.camera_unavailable, Toast.LENGTH_LONG).show();
+                        }
+                    }
+                });
                 notificationManager.notify(
                         NOTIFICATION_ID,
                         createRecordingNotification(false));
@@ -378,7 +409,50 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && audioSource.usesMicrophone()) {
             type |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                && cameraFacing != OverlaySettings.CAMERA_OFF) {
+            type |= ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
+        }
         startForeground(NOTIFICATION_ID, notification, type);
+    }
+
+    private void openOverlay(ScreenRecorder activeRecorder) {
+        if (finished.get() || stopping.get() || !android.provider.Settings.canDrawOverlays(this)) {
+            return;
+        }
+        if (!overlaySettings.controls() && cameraFacing == OverlaySettings.CAMERA_OFF) return;
+        overlay = new RecordingOverlay(this, overlaySettings, this::getActiveRecordingDurationMs);
+        if (overlaySettings.controls()) {
+            overlay.showControls(() -> {
+                if (paused) requestResume(0);
+                else requestPause(0);
+            }, this::stopAndSave,
+                    audioSource.usesMicrophone() ? this::setOverlayMicrophoneMuted : null);
+        }
+        if (cameraFacing != OverlaySettings.CAMERA_OFF) {
+            overlay.showCamera(cameraFacing, overlaySettings.originalCamera(),
+                    activeRecorder.getOutputBaseName());
+        }
+        overlay.setPaused(paused);
+    }
+
+    private void setOverlayMicrophoneMuted(boolean muted) {
+        ScreenRecorder activeRecorder = recorder;
+        if (activeRecorder != null && !stopping.get() && !finished.get()) {
+            executor.execute(() -> activeRecorder.setMicrophoneMuted(muted));
+        }
+    }
+
+    private void updateOverlayPaused(boolean paused) {
+        runOnMainThread(() -> {
+            if (overlay != null) overlay.setPaused(paused);
+        });
+    }
+
+    private void closeOverlay(boolean saveCamera) {
+        if (overlay == null) return;
+        overlay.close(saveCamera);
+        overlay = null;
     }
 
     private Notification createRecordingNotification(boolean preparing) {
@@ -579,7 +653,17 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
             }
             return;
         }
-        executor.execute(this::resumeRecording);
+        if (resumeScheduled || !paused || stopping.get()) return;
+        if (overlay != null && overlay.hidePrivateWindows()) {
+            resumeScheduled = true;
+            // Let WindowManager remove the private overlay layers before capture resumes.
+            mainHandler.postDelayed(() -> {
+                resumeScheduled = false;
+                if (!finished.get() && !stopping.get()) executor.execute(this::resumeRecording);
+            }, 120L);
+        } else {
+            executor.execute(this::resumeRecording);
+        }
     }
 
     private void pauseRecording() {
@@ -596,6 +680,7 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
             pausedAtElapsedRealtime = SystemClock.elapsedRealtime();
             paused = true;
             setRecordingState(RecordingState.PAUSED);
+            updateOverlayPaused(true);
             notificationManager.notify(
                     NOTIFICATION_ID,
                     createRecordingNotification(false));
@@ -624,11 +709,13 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
             pausedAtElapsedRealtime = 0L;
             paused = false;
             setRecordingState(RecordingState.RECORDING);
+            updateOverlayPaused(false);
             notificationManager.notify(
                     NOTIFICATION_ID,
                     createRecordingNotification(false));
         } catch (Exception error) {
             Log.e(TAG, "Unable to resume recording", error);
+            updateOverlayPaused(true);
             runOnMainThread(() -> Toast.makeText(
                     this,
                     R.string.resume_recording_failed,
@@ -694,6 +781,7 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
         }
         recorder = null;
         boolean shouldSave = recorderStarted.get();
+        runOnMainThread(() -> closeOverlay(shouldSave));
         if (shouldSave) {
             setRecordingState(RecordingState.SAVING);
             notificationManager.notify(NOTIFICATION_ID, createSavingNotification());
@@ -752,6 +840,7 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
             return;
         }
         mainHandler.post(() -> {
+            closeOverlay(false);
             cancelPendingNotificationRestore();
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
@@ -795,7 +884,16 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
     }
 
     @Override
+    public void onConfigurationChanged(android.content.res.Configuration configuration) {
+        super.onConfigurationChanged(configuration);
+        if (overlay != null) mainHandler.post(() -> {
+            if (overlay != null) overlay.restoreCameraLayout();
+        });
+    }
+
+    @Override
     public void onDestroy() {
+        closeOverlay(false);
         unregisterReceiver(screenOffReceiver);
         cancelPendingNotificationRestore();
         Runnable scheduledStart = pendingStart;

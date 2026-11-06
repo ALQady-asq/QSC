@@ -1,0 +1,40 @@
+# Contributing to QSC
+
+The source and test workflow are public so contributors can continue the project here or maintain a fork. Open an issue to discuss ongoing maintenance or a substantial change. A fork can build and publish independently under the terms in [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+## Build and test
+
+Use JDK 21. Install Android SDK Platform 37.0 and Build Tools 36.0.0 with Android Studio or `sdkmanager`.
+
+```sh
+sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
+./gradlew :app:testDebugUnitTest :app:assembleDevelopment
+adb install -r app/build/outputs/apk/development/app-development.apk
+```
+
+The development APK uses the application ID `com.openrecorder.app.matepad.test`. Release builds use `com.openrecorder.app.matepad` and are unsigned when built with `./gradlew :app:assembleRelease`. For an independently signed release, choose your own application ID and signing key. Android requires the existing certificate to update an installed release under the same ID.
+
+## Where to start
+
+| Area | Files in `app/src/main` |
+|---|---|
+| Capture session and saving | `ScreenRecorder.java`, `RecordingService.java`, `RecordingTimeline.java` |
+| Video quality, timing and fallback | `VideoTrackRecorder.java`, `VideoEncodingProfile.java`, `VideoFrameRatePolicy.java` |
+| Audio and MP4 | `InternalAudioRecorder.java`, `RecordingMuxer.java` |
+| Camera and controls | `CameraOverlayCapture.java`, `RecordingOverlay.java`, `OverlaySettings.java` |
+| Tablet settings and camera layout | `SettingsScreen.kt`, `CameraLayoutEditor.kt`, `MainActivity.kt` |
+
+The capture pipeline uses MediaProjection and MediaCodec. CameraX drives camera previews and camera-only recordings. The platform muxer handles AAC. Media3 handles MP4 output with Opus or PCM.
+
+## Useful follow-up work
+
+- Compare native-resolution frame pacing during scrolling and annotation on physical devices. Record the codec, target frame rate, actual output rate, and largest frame gap.
+- Test whether the camera overlay and an original camera file can run at the same time at different screen encoder settings. Check both lenses, rotation, pause and resume, and cleanup after cancellation.
+- Verify the floating bar, tile, and pause-only overlays on additional Android and HarmonyOS versions. The pause-only mode avoids a visible black rectangle observed with a secure overlay during capture on the tested MatePad.
+- Add Arabic UI translations and test right-to-left layouts at different tablet window widths.
+
+## Reports and changes
+
+For a recording bug, include the app version, device model, system version, resolution, target FPS, video and audio codecs, and the steps to reproduce it. If possible, include stream metadata from `ffprobe -hide_banner -i sample.mp4`. A short clip with synthetic content is sufficient to demonstrate a visual issue without sharing personal recordings or notifications.
+
+For changes to capture, record a short clip on a physical device and confirm it plays and saves correctly after pause and resume. Run the unit tests and describe what you tested in the pull request. Preserve upstream credit and keep signing material and personal test clips outside the repository.

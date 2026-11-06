@@ -7,6 +7,7 @@ final class VideoFrameRatePolicy {
             RecordingOptions.VIDEO_FRAME_RATE_120_FPS,
             RecordingOptions.VIDEO_FRAME_RATE_90_FPS,
             RecordingOptions.VIDEO_FRAME_RATE_60_FPS,
+            RecordingOptions.VIDEO_FRAME_RATE_50_FPS,
             RecordingOptions.VIDEO_FRAME_RATE_30_FPS,
     };
 

@@ -8,7 +8,8 @@ final class VideoEncodingProfile {
     private static final int LONG_EDGE_1440P = 2_560;
     private static final int LONG_EDGE_1080P = 1_920;
     private static final int LONG_EDGE_720P = 1_280;
-    private static final int LONG_EDGE_480P = 854;
+    private static final int LONG_EDGE_480P = 852;
+    private static final int ENCODER_ALIGNMENT = 4;
     private static final int MAX_AUTOMATIC_VIDEO_BIT_RATE = 24_000_000;
     private static final int BASE_FRAME_RATE = RecordingOptions.VIDEO_FRAME_RATE_30_FPS;
     // Automatic bitrate is 0.10 bits per visible pixel per frame.
@@ -82,10 +83,13 @@ final class VideoEncodingProfile {
                 ? maximumLongEdge / canvasLongEdge
                 : 1.0;
 
-        int contentWidth = toEvenDimension(orientedWidth * scale);
-        int contentHeight = toEvenDimension(orientedHeight * scale);
-        int outputWidth = Math.max(contentWidth, toEvenDimension(canvasWidth * scale));
-        int outputHeight = Math.max(contentHeight, toEvenDimension(canvasHeight * scale));
+        // MatePad hardware encoders require multiples of four. Preserve native dimensions
+        // when recording without scaling or a padded canvas.
+        int alignment = scale < 1.0 || force16By9Letterboxing ? ENCODER_ALIGNMENT : 2;
+        int contentWidth = toAlignedDimension(orientedWidth * scale, alignment);
+        int contentHeight = toAlignedDimension(orientedHeight * scale, alignment);
+        int outputWidth = Math.max(contentWidth, toAlignedDimension(canvasWidth * scale, alignment));
+        int outputHeight = Math.max(contentHeight, toAlignedDimension(canvasHeight * scale, alignment));
         int videoBitrate = resolveBitrate(
                 contentWidth,
                 contentHeight,
@@ -139,9 +143,8 @@ final class VideoEncodingProfile {
         }
     }
 
-    private static int toEvenDimension(double value) {
-        int rounded = (int) Math.round(value);
-        return Math.max(2, rounded & ~1);
+    private static int toAlignedDimension(double value, int alignment) {
+        return Math.max(1, (int) Math.round(value / alignment)) * alignment;
     }
 
     static final class Layout {

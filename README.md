@@ -1,91 +1,42 @@
-# Open Recorder
+# QSC · ALQady Screen Recorder
 
-An open-source screen recorder for Android with internal audio and a modern interface. No ads, no trackers and no internet access.
+مسجّل شاشة مجاني ومفتوح المصدر لأجهزة أندرويد. بدأتُ المشروع لأتمكّن من تسجيل الشروح والمحاضرات على جهاز **Huawei MatePad 11.5 S**. كنت أريد أن تبقى الكتابة الصغيرة واضحة، وأن أستطيع اختيار صوت الجهاز أو الميكروفون، وإظهار الكاميرا عند الحاجة. كما أردت أن أبدأ التسجيل وأوقفه من فوق التطبيق الذي أشرحه.
 
-## Features
+بنيتُ QSC على [Open Recorder](https://github.com/NoneBaiano/OpenRecorder) واستعنتُ بأدوات الذكاء الاصطناعي في تطوير التعديلات، ثم جرّبتُ التسجيل على الجهاز نفسه. أنشر المصدر لكي يستطيع من تفيده الفكرة أن يراجعها أو يكمل العمل عليها.
 
-### Recording
+## ما الذي يتيحه؟
 
-- Record your screen to MP4 files saved in `Movies/Open Recorder`
-- **Audio sources:** no audio, internal audio, microphone, or microphone and internal audio as independent AAC tracks
-- **Audio sample rate:** 44.1 kHz or 48 kHz
-- **Video codec:** H.264 or H.265
-- **Resolution:** native, 2160p, 1440p, 1080p, 720p, or 480p
-- **Frame rate:** automatic, 120, 90, 60, or 30 fps
-- **Video bitrate:** automatic, 4, 8, 16, or 24 Mbps
-- **Orientation:** automatic, portrait, or landscape
-- **Force 16:9 with letterboxing:** fits the full capture inside a 16:9 frame without cropping
-- **Stop when lock screen:** stop the recording when the screen locks
-- **Recording countdown:** off, 3, 5, or 10 seconds, so you can open the screen you want to capture. You can cancel while it counts down
-- **File naming pattern:** `dd-mm-yyyy`, `mm-dd-yyyy`, `yyyy-mm-dd`, or `yyyy-dd-mm`, followed by `_hh-mm-ss`
+- تسجيل الشاشة إلى MP4 بالدقة الأصلية أو بدقة أقل. في MatePad 11.5 S تصل الدقة الأصلية الأفقية إلى ‎2800×1840‎. يتوفر H.264 وH.265 ومعدلات مستهدفة تشمل 50 و60 إطارًا في الثانية.
+- تسجيل صوت الجهاز أو الميكروفون أو كليهما، مع خيارات AAC وOpus وPCM داخل ملف الفيديو.
+- نافذة للكاميرا الأمامية أو الخلفية يمكن نقلها وتغيير حجمها، مع حفظ موضع مستقل للأفقي والرأسي. يمكن حفظ فيديو الكاميرا في ملف إضافي عند دعم الجهاز تشغيل الترميز بالتوازي.
+- عدّاد قابل للتوسيع إلى شريط تحكم أثناء التسجيل، وإعدادات بعمودين على الشاشات الواسعة.
 
-### Controls
+## التجربة
 
-- Start and stop from the app's main screen
-- **Notification controls:** pause, resume, and stop while recording
-- **Quick Settings tile:** tap to start, and tap again to stop. It also shows the current state (starting, recording, paused, saving, stopping)
-- Recording keeps running if you close the app
-- After saving, a notification lets you **watch**, **share**, or **delete** the video
+نزّل ملف APK من تبويب **Releases**. افتح التطبيق وامنح النظام إذن التقاط الشاشة عند البدء. عند استخدام الشريط العائم أو معاينة الكاميرا، فعّل **Allow display over other apps** من **Settings → Camera and floating controls**. تُحفظ التسجيلات في `Movies/Open Recorder`.
 
-### Recordings tab
+لتسجيل نصوص الشرائح بوضوح، جرّب **Native detail preset**. تتضمن النسخة أيضًا **Smooth recording preset** بدقة 1080p ومعدل مستهدف 60 إطارًا في الثانية. راجع [دليل الاستخدام](README-MATEPAD.md) لبقية الخيارات.
 
-- Lists the videos recorded by Open Recorder, with total count
-- Sort by date, size, or duration
-- Open a video in your default player
-- Share one or multiple selected recordings with other apps
-- Select one, several, or all recordings and delete them (Android asks you to confirm)
+## الوضع الحالي
 
-### Appearance and settings
+اختُبرت ميزات التطبيق على MatePad 11.5 S، واختُبر إعداد الترميز في الإصدار 1.2.1 عند 50 إطارًا في الثانية باستخدام نصوص اصطناعية. تختلف السلاسة والدقات ومعدلات الإطارات الفعلية حسب الجهاز والمحتوى. يتطلب التقاط صوت التطبيقات أن يسمح التطبيق المُشغّل بذلك، وقد يحتاج Opus أو PCM داخل MP4 إلى مشغّل يدعم هذه التركيبة.
 
-- Light, dark, or follow-system themes
-- Dynamic color (Monet) variants of each theme
-- Page scale adjust the interface from 90% to 110% using a slider
-- Optional predictive back gesture (off by default)
-- Settings are saved between sessions
+عند إظهار الشريط أو معاينة الكاميرا أثناء التسجيل، يستطيع النظام إدراجهما في ملف الشاشة. يوفر QSC خيارًا لإظهارهما عند الإيقاف المؤقت فقط، ثم إخفائهما قبل الاستئناف. التطبيق مستقل عن مسجّل هواوي، ويعمل عبر واجهات أندرويد العامة. لا يطلب إذن الإنترنت.
 
-### About
+## البناء والمساهمة
 
-- Project page with a link to the source code and the GPL-3.0 license
-- Built-in list of open-source licenses used by the app
+يحتاج البناء إلى JDK 21 ومنصة Android SDK 37.0 وأدوات البناء 36.0.0. يعمل التطبيق على Android 10 فما فوق، وتعتمد ميزاته على واجهات النظام المتاحة على الجهاز.
 
-## Privacy
+```sh
+./gradlew :app:testDebugUnitTest :app:assembleDevelopment
+```
 
-- **No internet permission.** The app cannot connect to the network
-- No ads, no analytics, no crash reporting, no tracking
-- Backups are disabled
-- Recordings stay on your device
-- Other apps are not allowed to capture Open Recorder's audio
+ملف نسخة التطوير في `app/build/outputs/apk/development/` ويمكن تثبيته بجانب الإصدار. إن أردت متابعة المشروع، ابدأ من [دليل المساهمة وتسليم التطوير](CONTRIBUTING.md)، وافتح بلاغًا أو طلب سحب أو أنشئ تفرعًا خاصًا بك.
 
-## Permissions
+## الأصل والترخيص
 
-| Permission | Why |
-|---|---|
-| `RECORD_AUDIO` | Microphone and internal audio capture |
-| `POST_NOTIFICATIONS` | Recording controls and "saved" notification |
-| `FOREGROUND_SERVICE` | Keeps recording while the app is in the background |
-| `FOREGROUND_SERVICE_MEDIA_PROJECTION` | Required by Android for screen capture services |
-| `FOREGROUND_SERVICE_MICROPHONE` | Required by Android for microphone capture services |
+QSC تفرّع من **Open Recorder 1.0.3**. يحفظ المستودع تاريخ المشروع الأصلي وإشعاراته. الشفرة تحت ترخيص [GPL-3.0-only](LICENSE)، وتفاصيل المكونات الخارجية في [NOTICE](NOTICE).
 
-## Requirements
+---
 
-Android 10 (API 29) or later.
-
-## Limitations
-
-These come from Android itself, not from this app:
-
-- Android asks for your confirmation every time you start a recording.
-- Apps that block capture (DRM video, banking apps, anything using `FLAG_SECURE`) can appear black or silent.
-- Internal audio only includes apps that allow playback capture.
-
-## Credits
-
-- Capture engine inspired by the Android Open Source Project (AOSP) SystemUI screen recorder
-- UI built with [Miuix](https://github.com/compose-miuix-ui/miuix) for Compose
-- Dynamic colors powered by [MaterialKolor](https://github.com/jordond/materialkolor)
-- Navigation and UI are adapted from [AsteriskNG](https://github.com/Asterisk4Magisk/AsteriskNG) (Copyright 2026, AsteriskNG contributors), licensed under GPL-3.0.
-See [NOTICE] (NOTICE) for full third-party attributions.
-
-## License
-
-[GPL-3.0-only](LICENSE)
+**English summary.** QSC is a GPL-3.0-only fork of Open Recorder tailored to tablet screen recording, initially tested on Huawei MatePad 11.5 S. It adds a floating recording bar, a resizable camera overlay, a two-pane settings layout, higher-detail native capture profiles, and AAC, Opus, and PCM audio in MP4. See [CONTRIBUTING.md](CONTRIBUTING.md) to build, test, and continue development.

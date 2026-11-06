@@ -23,8 +23,8 @@ Preference, Shader, Squircle, and UI modules, which are licensed under the
 Apache License 2.0:
 https://github.com/compose-miuix-ui/miuix
 
-AndroidX Activity, Annotation, Collection, Concurrent Futures, Core,
-Interpolator, Lifecycle, NavigationEvent, ProfileInstaller, SavedState,
+AndroidX Activity, Annotation, CameraX, Collection, Concurrent Futures, Core,
+Interpolator, Lifecycle, Media3, NavigationEvent, ProfileInstaller, SavedState,
 Startup, and Tracing; Compose Multiplatform UI, Foundation, Runtime, and
 Material 3 Window Size Class; JSpecify; Poko Annotations; the Kotlin standard
 library; and Kotlinx Coroutines are licensed under the Apache License 2.0.

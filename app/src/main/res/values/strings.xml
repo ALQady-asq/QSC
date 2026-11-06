@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Open Recorder</string>
+    <string name="app_name">QSC</string>
     <string name="nav_record">Record</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_recordings">Recordings</string>
@@ -10,12 +10,12 @@
     <string name="section_options">Options</string>
     <string name="section_about">About</string>
     <string name="about_this_project">About this project</string>
-    <string name="about_tagline">An open source screen recorder!</string>
+    <string name="about_tagline">ALQady Screen Recorder</string>
     <string name="about_license">License</string>
     <string name="about_license_value" translatable="false">GPL-3</string>
     <string name="about_version">Version</string>
-    <string name="about_version_value" translatable="false">1.0.3</string>
-    <string name="version_tap_thanks">Thanks for using Open Recorder!</string>
+    <string name="about_version_value" translatable="false">1.2.1</string>
+    <string name="version_tap_thanks">Thanks for using QSC!</string>
     <string name="open_source_licenses">Open source licenses</string>
     <string name="open_source_license_summary">%1$s, %2$s</string>
     <string name="navigate_back">Go back</string>
@@ -79,7 +79,8 @@
     <string name="audio_none">No audio</string>
     <string name="audio_internal">Internal audio</string>
     <string name="audio_microphone">Microphone</string>
-    <string name="audio_both">Microphone and internal audio</string>
+    <string name="audio_both">Microphone and internal audio (separate tracks)</string>
+    <string name="audio_both_mixed">Microphone and internal audio (mixed)</string>
     <string name="theme_label">Theme</string>
     <string name="theme_system">Follow system</string>
     <string name="theme_light">Light</string>
@@ -93,7 +94,7 @@
     <string name="sample_rate_44">44.1 kHz</string>
     <string name="sample_rate_48">48 kHz</string>
     <string name="video_resolution_label">Resolution</string>
-    <string name="video_resolution_native">Native</string>
+    <string name="video_resolution_native">Native (maximum detail)</string>
     <string name="video_resolution_2160p">2160p</string>
     <string name="video_resolution_1440p">1440p</string>
     <string name="video_resolution_1080p">1080p</string>
@@ -104,6 +105,7 @@
     <string name="video_frame_rate_120">120 fps</string>
     <string name="video_frame_rate_90">90 fps</string>
     <string name="video_frame_rate_60">60 fps</string>
+    <string name="video_frame_rate_50">50 fps</string>
     <string name="video_frame_rate_30">30 fps</string>
     <string name="force_16_by_9_letterboxing">Force 16:9 with letterboxing</string>
     <string name="force_16_by_9_letterboxing_summary">Fit the full capture inside a 16:9 frame without cropping.</string>
@@ -115,6 +117,8 @@
     <string name="video_bitrate_8">8 Mbps</string>
     <string name="video_bitrate_16">16 Mbps</string>
     <string name="video_bitrate_24">24 Mbps</string>
+    <string name="video_bitrate_40">40 Mbps</string>
+    <string name="video_bitrate_60">60 Mbps</string>
     <string name="video_codec_label">Video codec</string>
     <string name="video_codec_h264">H.264</string>
     <string name="video_codec_h265">H.265</string>
@@ -204,11 +208,52 @@
     <string name="recording_deleted">Recording deleted.</string>
     <string name="recording_delete_failed">Could not delete the recording.</string>
     <string name="share_video">Share recording</string>
-    <string name="quick_settings_tile_label">Open Recorder</string>
+    <string name="quick_settings_tile_label">@string/app_name</string>
     <string name="quick_settings_preparing">Starting</string>
     <string name="quick_settings_recording">Recording</string>
     <string name="quick_settings_paused">Paused</string>
     <string name="quick_settings_saving">Saving</string>
     <string name="quick_settings_stopping">Stopping</string>
     <string name="quick_settings_description">%1$s, %2$s</string>
+
+    <string name="section_camera_controls">Camera and floating controls</string>
+    <string name="floating_controls">Floating recording bar</string>
+    <string name="floating_controls_summary">A compact timer at the top of the screen. Tap it to open recording controls.</string>
+    <string name="overlay_permission">Allow display over other apps</string>
+    <string name="overlay_permission_unavailable">The display-over-apps setting is unavailable on this device.</string>
+    <string name="overlay_permission_required">Allow QSC to display over other apps, then tap Record again.</string>
+    <string name="camera_label">Camera overlay</string>
+    <string name="camera_off">Off</string>
+    <string name="camera_front">Front camera</string>
+    <string name="camera_rear">Rear camera</string>
+    <string name="private_controls">Show bar only when paused</string>
+    <string name="private_controls_summary">Pause from the notification to use the bar. It stays out of the recorded frames.</string>
+    <string name="private_camera">Show camera preview only when paused</string>
+    <string name="private_camera_summary">Adjust the preview privately. Enable the separate camera video if you want to keep the footage.</string>
+    <string name="camera_layout">Camera layout</string>
+    <string name="camera_size">Camera size</string>
+    <string name="camera_horizontal">Horizontal position</string>
+    <string name="camera_vertical">Vertical position</string>
+    <string name="native_detail_profile">Native detail preset</string>
+    <string name="native_detail_profile_summary">Screen size, 50 FPS, 60 Mbps, H.265 where available</string>
+    <string name="native_detail_profile_applied">Native detail preset applied.</string>
+    <string name="smooth_screen_profile">Smooth recording preset</string>
+    <string name="smooth_screen_profile_summary">1080p, 60 FPS, H.264, 16 Mbps</string>
+    <string name="smooth_screen_profile_applied">Smooth recording preset applied.</string>
+    <string name="camera_original">Save original camera video</string>
+    <string name="camera_original_summary">Save a second MP4 at the camera’s highest video profile, without audio.</string>
+    <string name="camera_permission_denied">Camera permission is required for the selected camera.</string>
+    <string name="camera_unavailable">Camera unavailable. Screen recording continues.</string>
+    <string name="camera_original_unavailable">Full-size camera video unavailable. QSC will keep the camera overlay if available.</string>
+    <string name="overlay_pause">Pause recording</string>
+    <string name="overlay_resume">Resume recording</string>
+    <string name="overlay_mute">Mute microphone</string>
+    <string name="overlay_unmute">Unmute microphone</string>
+    <string name="overlay_stop">Stop recording</string>
+    <string name="overlay_collapse">Collapse recording controls</string>
+    <string name="overlay_expand">Expand recording controls</string>
+    <string name="audio_encoding">Audio codec in video</string>
+    <string name="audio_encoding_aac">AAC (compatible)</string>
+    <string name="audio_encoding_opus">Opus (high quality)</string>
+    <string name="audio_encoding_pcm">PCM (lossless)</string>
 </resources>

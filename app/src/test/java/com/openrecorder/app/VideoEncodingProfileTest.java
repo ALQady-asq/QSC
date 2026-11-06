@@ -17,6 +17,31 @@ public final class VideoEncodingProfileTest {
     }
 
     @Test
+    public void matePadNativeResolutionKeepsExactDimensionsInBothOrientations() {
+        VideoEncodingProfile.Layout portrait = VideoEncodingProfile.resolve(
+                2800, 1840, RecordingOptions.ORIENTATION_PORTRAIT,
+                RecordingOptions.VIDEO_RESOLUTION_NATIVE, false,
+                RecordingOptions.VIDEO_BITRATE_24_MBPS);
+        VideoEncodingProfile.Layout landscape = VideoEncodingProfile.resolve(
+                1840, 2800, RecordingOptions.ORIENTATION_LANDSCAPE,
+                RecordingOptions.VIDEO_RESOLUTION_NATIVE, false,
+                RecordingOptions.VIDEO_BITRATE_24_MBPS);
+
+        assertLayout(portrait, 1840, 2800, 1840, 2800);
+        assertLayout(landscape, 2800, 1840, 2800, 1840);
+    }
+
+    @Test
+    public void matePadScaledResolutionAlignsToHardwareEncoder() {
+        VideoEncodingProfile.Layout layout = VideoEncodingProfile.resolve(
+                2800, 1840, RecordingOptions.ORIENTATION_AUTOMATIC,
+                RecordingOptions.VIDEO_RESOLUTION_1440P, false,
+                RecordingOptions.VIDEO_BITRATE_16_MBPS);
+
+        assertLayout(layout, 2560, 1684, 2560, 1684);
+    }
+
+    @Test
     public void resolutionPresetsPreserveAspectRatioAndCapLongEdge() {
         VideoEncodingProfile.Layout fullHd = resolve(
                 RecordingOptions.VIDEO_RESOLUTION_1080P,
@@ -31,9 +56,9 @@ public final class VideoEncodingProfileTest {
                 false,
                 RecordingOptions.VIDEO_BITRATE_AUTO);
 
-        assertLayout(fullHd, 886, 1920, 886, 1920);
-        assertLayout(hd, 590, 1280, 590, 1280);
-        assertLayout(sd, 394, 854, 394, 854);
+        assertLayout(fullHd, 888, 1920, 888, 1920);
+        assertLayout(hd, 592, 1280, 592, 1280);
+        assertLayout(sd, 392, 852, 392, 852);
     }
 
     @Test
@@ -43,7 +68,7 @@ public final class VideoEncodingProfileTest {
                 true,
                 RecordingOptions.VIDEO_BITRATE_AUTO);
 
-        assertLayout(layout, 1080, 1920, 886, 1920);
+        assertLayout(layout, 1080, 1920, 888, 1920);
     }
 
     @Test
@@ -69,7 +94,7 @@ public final class VideoEncodingProfileTest {
                 RecordingOptions.VIDEO_BITRATE_AUTO);
 
         assertEquals(regular.videoBitrate, letterboxed.videoBitrate);
-        assertEquals(5_103_360, letterboxed.videoBitrate);
+        assertEquals(5_114_880, letterboxed.videoBitrate);
     }
 
     @Test
@@ -84,9 +109,9 @@ public final class VideoEncodingProfileTest {
                 .videoBitrate;
 
         assertEquals(7_581_600, nativeBitrate);
-        assertEquals(5_103_360, fullHdBitrate);
-        assertEquals(2_265_600, hdBitrate);
-        assertEquals(1_009_428, sdBitrate);
+        assertEquals(5_114_880, fullHdBitrate);
+        assertEquals(2_273_280, hdBitrate);
+        assertEquals(1_001_952, sdBitrate);
         assertTrue(nativeBitrate > fullHdBitrate);
         assertTrue(fullHdBitrate > hdBitrate);
         assertTrue(hdBitrate > sdBitrate);
@@ -102,7 +127,7 @@ public final class VideoEncodingProfileTest {
                 true,
                 RecordingOptions.VIDEO_BITRATE_AUTO);
 
-        assertLayout(layout, 1920, 1080, 1920, 886);
+        assertLayout(layout, 1920, 1080, 1920, 888);
     }
 
     @Test
@@ -125,6 +150,8 @@ public final class VideoEncodingProfileTest {
                 RecordingOptions.VIDEO_BITRATE_8_MBPS,
                 RecordingOptions.VIDEO_BITRATE_16_MBPS,
                 RecordingOptions.VIDEO_BITRATE_24_MBPS,
+                RecordingOptions.VIDEO_BITRATE_40_MBPS,
+                RecordingOptions.VIDEO_BITRATE_60_MBPS,
         };
 
         for (int bitrate : fixedBitrates) {
@@ -142,7 +169,7 @@ public final class VideoEncodingProfileTest {
                 false,
                 RecordingOptions.VIDEO_BITRATE_AUTO);
 
-        assertLayout(layout, 886, 1920, 886, 1920);
+        assertLayout(layout, 888, 1920, 888, 1920);
     }
 
     @Test
@@ -172,9 +199,9 @@ public final class VideoEncodingProfileTest {
                 RecordingOptions.VIDEO_BITRATE_AUTO,
                 RecordingOptions.VIDEO_FRAME_RATE_120_FPS);
 
-        assertEquals(2_265_600, at30Fps.videoBitrate);
-        assertEquals(4_531_200, at60Fps.videoBitrate);
-        assertEquals(9_062_400, at120Fps.videoBitrate);
+        assertEquals(2_273_280, at30Fps.videoBitrate);
+        assertEquals(4_546_560, at60Fps.videoBitrate);
+        assertEquals(9_093_120, at120Fps.videoBitrate);
     }
 
     @Test

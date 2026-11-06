@@ -13,6 +13,7 @@ public final class VideoFrameRatePolicyTest {
                 RecordingOptions.VIDEO_FRAME_RATE_120_FPS,
                 RecordingOptions.VIDEO_FRAME_RATE_90_FPS,
                 RecordingOptions.VIDEO_FRAME_RATE_60_FPS,
+                RecordingOptions.VIDEO_FRAME_RATE_50_FPS,
                 RecordingOptions.VIDEO_FRAME_RATE_30_FPS,
         };
 
@@ -34,6 +35,7 @@ public final class VideoFrameRatePolicyTest {
         assertEquals(120, VideoFrameRatePolicy.resolvePreferredFrameRate(0, 119.94f));
         assertEquals(90, VideoFrameRatePolicy.resolvePreferredFrameRate(0, 90f));
         assertEquals(60, VideoFrameRatePolicy.resolvePreferredFrameRate(0, 75f));
+        assertEquals(50, VideoFrameRatePolicy.resolvePreferredFrameRate(0, 50f));
         assertEquals(30, VideoFrameRatePolicy.resolvePreferredFrameRate(0, 24f));
         assertEquals(30, VideoFrameRatePolicy.resolvePreferredFrameRate(0, Float.NaN));
     }
@@ -41,11 +43,14 @@ public final class VideoFrameRatePolicyTest {
     @Test
     public void fixedRateFallsBackWithoutExceedingTheRequest() {
         assertArrayEquals(
-                new int[] {120, 90, 60, 30},
+                new int[] {120, 90, 60, 50, 30},
                 VideoFrameRatePolicy.fallbackCandidates(120, 60f));
         assertArrayEquals(
-                new int[] {90, 60, 30},
+                new int[] {90, 60, 50, 30},
                 VideoFrameRatePolicy.fallbackCandidates(90, 120f));
+        assertArrayEquals(
+                new int[] {50, 30},
+                VideoFrameRatePolicy.fallbackCandidates(50, 120f));
         assertArrayEquals(
                 new int[] {30},
                 VideoFrameRatePolicy.fallbackCandidates(30, 120f));
@@ -54,7 +59,7 @@ public final class VideoFrameRatePolicyTest {
     @Test
     public void automaticFallbacksStartAtTheDisplayRate() {
         assertArrayEquals(
-                new int[] {60, 30},
+                new int[] {60, 50, 30},
                 VideoFrameRatePolicy.fallbackCandidates(0, 60f));
     }
 }

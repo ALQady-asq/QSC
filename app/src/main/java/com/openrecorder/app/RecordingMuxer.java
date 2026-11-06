@@ -4,6 +4,9 @@ import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.muxer.MediaMuxerCompat;
+
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -11,18 +14,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Serializes both encoder threads into the same MP4 while capture is active. */
+@androidx.annotation.OptIn(markerClass = UnstableApi.class)
 final class RecordingMuxer {
     private static final long START_TIMEOUT_MS = 5_000L;
 
     private final MediaMuxer muxer;
+    private final MediaMuxerCompat extendedMuxer;
     private final List<Track> tracks = new ArrayList<>();
 
     private boolean started;
     private boolean released;
     private IOException failure;
 
-    RecordingMuxer(FileDescriptor output) throws IOException {
-        muxer = new MediaMuxer(output, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+    RecordingMuxer(FileDescriptor output, boolean extendedAudio) throws IOException {
+        muxer = extendedAudio ? null
+                : new MediaMuxer(output, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        extendedMuxer = extendedAudio
+                ? new MediaMuxerCompat(output, MediaMuxerCompat.OUTPUT_FORMAT_MP4) : null;
     }
 
     synchronized Track createTrack(String name) {
@@ -45,7 +53,8 @@ final class RecordingMuxer {
         IOException stopFailure = failure;
         try {
             if (started) {
-                muxer.stop();
+                if (extendedMuxer != null) extendedMuxer.stop();
+                else muxer.stop();
             } else if (stopFailure == null) {
                 stopFailure = new IOException("No encoded tracks were available to finalize");
             }
@@ -57,7 +66,7 @@ final class RecordingMuxer {
             }
         } finally {
             try {
-                muxer.release();
+                releaseMuxer();
             } catch (RuntimeException error) {
                 if (stopFailure != null) {
                     stopFailure.addSuppressed(error);
@@ -80,18 +89,24 @@ final class RecordingMuxer {
         }
         try {
             if (started) {
-                muxer.stop();
+                if (extendedMuxer != null) extendedMuxer.stop();
+                else muxer.stop();
             }
         } catch (RuntimeException ignored) {
             // The pending MediaStore item is deleted after a cancelled recording.
         }
         try {
-            muxer.release();
+            releaseMuxer();
         } catch (RuntimeException ignored) {
             // Best effort during cancellation.
         }
         released = true;
         notifyAll();
+    }
+
+    private void releaseMuxer() {
+        if (extendedMuxer != null) extendedMuxer.release();
+        else muxer.release();
     }
 
     private synchronized void setTrackFormat(Track track, MediaFormat format) throws IOException {
@@ -104,7 +119,7 @@ final class RecordingMuxer {
         }
         throwIfFailed();
         try {
-            track.index = muxer.addTrack(format);
+            track.index = extendedMuxer != null ? extendedMuxer.addTrack(format) : muxer.addTrack(format);
             track.formatAdded = true;
             startIfReady();
         } catch (RuntimeException error) {
@@ -143,7 +158,8 @@ final class RecordingMuxer {
         }
 
         try {
-            muxer.writeSampleData(track.index, data, info);
+            if (extendedMuxer != null) extendedMuxer.writeSampleData(track.index, data, info);
+            else muxer.writeSampleData(track.index, data, info);
             track.sampleCount++;
             track.bytesWritten += info.size;
         } catch (RuntimeException error) {
@@ -180,7 +196,8 @@ final class RecordingMuxer {
             return;
         }
         try {
-            muxer.start();
+            if (extendedMuxer != null) extendedMuxer.start();
+            else muxer.start();
             started = true;
             notifyAll();
         } catch (RuntimeException error) {

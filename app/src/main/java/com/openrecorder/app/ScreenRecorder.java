@@ -47,6 +47,8 @@ final class ScreenRecorder {
     private final Intent resultData;
     private final AudioSource audioSource;
     private final int audioSampleRate;
+    private final int audioEncoding;
+    private String outputBaseName;
     private final int videoResolution;
     private final int videoFrameRate;
     private final boolean force16By9Letterboxing;
@@ -86,6 +88,7 @@ final class ScreenRecorder {
             Intent resultData,
             AudioSource audioSource,
             int audioSampleRate,
+            int audioEncoding,
             int videoResolution,
             int videoFrameRate,
             boolean force16By9Letterboxing,
@@ -99,6 +102,7 @@ final class ScreenRecorder {
         this.resultData = resultData;
         this.audioSource = audioSource;
         this.audioSampleRate = RecordingOptions.normalizeSampleRate(audioSampleRate);
+        this.audioEncoding = audioEncoding;
         this.videoResolution = RecordingOptions.normalizeVideoResolution(videoResolution);
         this.videoFrameRate = RecordingOptions.normalizeVideoFrameRate(videoFrameRate);
         this.force16By9Letterboxing = force16By9Letterboxing;
@@ -162,7 +166,7 @@ final class ScreenRecorder {
         prepareVideoRecorder(preparedCaptureSize);
 
         virtualDisplay = projection.createVirtualDisplay(
-                "Open Recorder",
+                "QSC",
                 preparedCaptureSize.width,
                 preparedCaptureSize.height,
                 preparedCaptureSize.densityDpi,
@@ -178,19 +182,22 @@ final class ScreenRecorder {
 
         if (audioSource != AudioSource.NONE) {
             try {
+                boolean separateTracks = audioSource == AudioSource.INTERNAL_AND_MICROPHONE;
                 audioRecorder = new InternalAudioRecorder(
                         context,
                         projection,
-                        audioSource.usesInternalAudio() ? AudioSource.INTERNAL : AudioSource.MICROPHONE,
-                        audioSampleRate);
+                        separateTracks ? AudioSource.INTERNAL : audioSource,
+                        audioSampleRate,
+                        audioEncoding);
                 audioRecorder.prepare();
-                if (audioSource == AudioSource.INTERNAL_AND_MICROPHONE) {
+                if (separateTracks) {
                     // A second encoder produces an independent AAC track in the same MP4.
                     microphoneRecorder = new InternalAudioRecorder(
                             context,
                             projection,
                             AudioSource.MICROPHONE,
-                            audioSampleRate);
+                            audioSampleRate,
+                            audioEncoding);
                     microphoneRecorder.prepare();
                 }
             } catch (Exception error) {
@@ -226,6 +233,11 @@ final class ScreenRecorder {
                 disableAudio(error);
             }
         }
+    }
+
+    synchronized void setMicrophoneMuted(boolean muted) {
+        if (audioRecorder != null) audioRecorder.setMicrophoneMuted(muted);
+        if (microphoneRecorder != null) microphoneRecorder.setMicrophoneMuted(muted);
     }
 
     synchronized void pause() throws IOException {
@@ -391,11 +403,15 @@ final class ScreenRecorder {
         }
     }
 
+    String getOutputBaseName() {
+        return outputBaseName;
+    }
+
     private void prepareOutput() throws IOException {
         ContentResolver resolver = context.getContentResolver();
         long now = System.currentTimeMillis();
-        String fileName = new SimpleDateFormat(namingPattern, Locale.US).format(new Date(now))
-                + ".mp4";
+        outputBaseName = new SimpleDateFormat(namingPattern, Locale.US).format(new Date(now));
+        String fileName = outputBaseName + ".mp4";
         ContentValues values = new ContentValues();
         values.put(MediaStore.Video.Media.DISPLAY_NAME, fileName);
         values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
@@ -416,7 +432,8 @@ final class ScreenRecorder {
             if (descriptor == null) {
                 throw new IOException("MediaStore output file is unavailable");
             }
-            pendingMuxer = new RecordingMuxer(descriptor.getFileDescriptor());
+            pendingMuxer = new RecordingMuxer(descriptor.getFileDescriptor(),
+                    audioRecorder != null && audioEncoding != OverlaySettings.AUDIO_AAC);
             pendingVideoTrack = pendingMuxer.createTrack("video");
             videoRecorder.setOutputTrack(pendingVideoTrack);
             if (audioRecorder != null) {

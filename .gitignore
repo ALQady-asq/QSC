@@ -7,3 +7,8 @@ captures/
 *.iml
 *.apk
 *.aab
+
+.kotlin/
+*.jks
+*.keystore
+*.p12

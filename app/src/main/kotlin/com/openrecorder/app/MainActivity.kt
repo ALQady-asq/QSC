@@ -69,6 +69,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            ensureAudioPermissionAndRequestCapture()
+        } else {
+            showToast(R.string.camera_permission_denied, Toast.LENGTH_LONG)
+        }
+    }
+
     private val audioPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -349,6 +359,8 @@ class MainActivity : ComponentActivity() {
                                     recorderPreferences.saveOrientation(orientation)
                                 }
                             },
+                            onApplySmoothProfile = ::applySmoothProfile,
+                            onApplyNativeDetailProfile = ::applyNativeDetailProfile,
                             onViewOnGitHub = ::viewOnGitHub,
                             onViewLicense = ::viewLicense,
                             onOpenExternalUrl = ::viewOpenSourceLicense,
@@ -617,6 +629,55 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    private fun applyNativeDetailProfile() {
+        val resolution = RecordingOptions.VIDEO_RESOLUTION_NATIVE
+        val frameRate = RecordingOptions.VIDEO_FRAME_RATE_50_FPS
+        val bitrate = RecordingOptions.VIDEO_BITRATE_60_MBPS
+        val orientation = RecordingOptions.ORIENTATION_AUTOMATIC
+        val codec = if (ScreenRecorder.isVideoCodecSupported(RecordingOptions.VIDEO_CODEC_H265)) {
+            RecordingOptions.VIDEO_CODEC_H265
+        } else {
+            RecordingOptions.VIDEO_CODEC_H264
+        }
+        updateRecordingSettingsUiState {
+            it.copy(
+                selectedVideoResolution = resolution,
+                selectedVideoFrameRate = frameRate,
+                selectedVideoBitrate = bitrate,
+                selectedVideoCodec = codec,
+                selectedOrientation = orientation,
+                force16By9Letterboxing = false,
+            )
+        }
+        recorderPreferences.saveVideoResolution(resolution)
+        recorderPreferences.saveVideoFrameRate(frameRate)
+        recorderPreferences.saveVideoBitrate(bitrate)
+        recorderPreferences.saveVideoCodec(codec)
+        recorderPreferences.saveOrientation(orientation)
+        recorderPreferences.saveForce16By9Letterboxing(false)
+        showToast(R.string.native_detail_profile_applied, Toast.LENGTH_SHORT)
+    }
+
+    private fun applySmoothProfile() {
+        val resolution = RecordingOptions.VIDEO_RESOLUTION_1080P
+        val frameRate = RecordingOptions.VIDEO_FRAME_RATE_60_FPS
+        val bitrate = RecordingOptions.VIDEO_BITRATE_16_MBPS
+        val codec = RecordingOptions.VIDEO_CODEC_H264
+        updateRecordingSettingsUiState {
+            it.copy(
+                selectedVideoResolution = resolution,
+                selectedVideoFrameRate = frameRate,
+                selectedVideoBitrate = bitrate,
+                selectedVideoCodec = codec,
+            )
+        }
+        recorderPreferences.saveVideoResolution(resolution)
+        recorderPreferences.saveVideoFrameRate(frameRate)
+        recorderPreferences.saveVideoBitrate(bitrate)
+        recorderPreferences.saveVideoCodec(codec)
+        showToast(R.string.smooth_screen_profile_applied, Toast.LENGTH_SHORT)
+    }
+
     private fun onRecordButtonClicked() {
         val state = recordScreenUiState.value
         when {
@@ -637,6 +698,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun ensureAudioPermissionAndRequestCapture() {
+        if (OverlaySettings(this).camera() != OverlaySettings.CAMERA_OFF) {
+            if (!android.provider.Settings.canDrawOverlays(this)) {
+                showToast(R.string.overlay_permission_required, Toast.LENGTH_LONG)
+                OverlaySettings.openPermission(this)
+                return
+            }
+            if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                return
+            }
+        }
+
         val state = recordingSettingsUiState.value
         if (!ScreenRecorder.isVideoCodecSupported(state.selectedVideoCodec)) {
             showUnsupportedVideoCodec(state.selectedVideoCodec)
@@ -684,7 +757,7 @@ class MainActivity : ComponentActivity() {
 
     private fun requestCapturePermission() {
         try {
-            captureLauncher.launch(projectionManager.createScreenCaptureIntent())
+            captureLauncher.launch(OverlaySettings(this).captureIntent(projectionManager))
         } catch (_: RuntimeException) {
             showToast(R.string.capture_permission_unavailable, Toast.LENGTH_LONG)
         }
@@ -796,6 +869,7 @@ class MainActivity : ComponentActivity() {
             AudioSource.MICROPHONE,
             AudioSource.INTERNAL,
             AudioSource.INTERNAL_AND_MICROPHONE,
+            AudioSource.INTERNAL_AND_MICROPHONE_MIXED,
         )
 
         val VIDEO_BITRATES = listOf(
@@ -804,6 +878,8 @@ class MainActivity : ComponentActivity() {
             RecordingOptions.VIDEO_BITRATE_8_MBPS,
             RecordingOptions.VIDEO_BITRATE_16_MBPS,
             RecordingOptions.VIDEO_BITRATE_24_MBPS,
+            RecordingOptions.VIDEO_BITRATE_40_MBPS,
+            RecordingOptions.VIDEO_BITRATE_60_MBPS,
         )
 
         val VIDEO_RESOLUTIONS = listOf(
@@ -820,6 +896,7 @@ class MainActivity : ComponentActivity() {
             RecordingOptions.VIDEO_FRAME_RATE_120_FPS,
             RecordingOptions.VIDEO_FRAME_RATE_90_FPS,
             RecordingOptions.VIDEO_FRAME_RATE_60_FPS,
+            RecordingOptions.VIDEO_FRAME_RATE_50_FPS,
             RecordingOptions.VIDEO_FRAME_RATE_30_FPS,
         )
 

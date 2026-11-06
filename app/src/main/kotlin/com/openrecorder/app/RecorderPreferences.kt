@@ -57,7 +57,7 @@ internal class RecorderPreferences(context: Context) {
     }
 
     fun loadAudioSource(): AudioSource = AudioSource.fromOrdinal(
-        preferences.getInt(KEY_AUDIO_SOURCE, AudioSource.NONE.ordinal),
+        preferences.getInt(KEY_AUDIO_SOURCE, AudioSource.INTERNAL.ordinal),
     )
 
     fun saveAudioSource(value: AudioSource) {
@@ -65,7 +65,7 @@ internal class RecorderPreferences(context: Context) {
     }
 
     fun loadSampleRate(): Int = RecordingOptions.normalizeSampleRate(
-        preferences.getInt(KEY_SAMPLE_RATE, RecordingOptions.DEFAULT_SAMPLE_RATE),
+        preferences.getInt(KEY_SAMPLE_RATE, RecordingOptions.SAMPLE_RATE_48_KHZ),
     )
 
     fun saveSampleRate(value: Int) {
@@ -75,7 +75,7 @@ internal class RecorderPreferences(context: Context) {
     }
 
     fun loadVideoBitrate(): Int = RecordingOptions.normalizeVideoBitrate(
-        preferences.getInt(KEY_VIDEO_BITRATE, RecordingOptions.DEFAULT_VIDEO_BITRATE),
+        preferences.getInt(KEY_VIDEO_BITRATE, RecordingOptions.VIDEO_BITRATE_24_MBPS),
     )
 
     fun saveVideoBitrate(value: Int) {
@@ -85,7 +85,7 @@ internal class RecorderPreferences(context: Context) {
     }
 
     fun loadVideoResolution(): Int = RecordingOptions.normalizeVideoResolution(
-        preferences.getInt(KEY_VIDEO_RESOLUTION, RecordingOptions.DEFAULT_VIDEO_RESOLUTION),
+        preferences.getInt(KEY_VIDEO_RESOLUTION, RecordingOptions.VIDEO_RESOLUTION_NATIVE),
     )
 
     fun saveVideoResolution(value: Int) {
@@ -95,7 +95,7 @@ internal class RecorderPreferences(context: Context) {
     }
 
     fun loadVideoFrameRate(): Int = RecordingOptions.normalizeVideoFrameRate(
-        preferences.getInt(KEY_VIDEO_FRAME_RATE, RecordingOptions.DEFAULT_VIDEO_FRAME_RATE),
+        preferences.getInt(KEY_VIDEO_FRAME_RATE, RecordingOptions.VIDEO_FRAME_RATE_30_FPS),
     )
 
     fun saveVideoFrameRate(value: Int) {

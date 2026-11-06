@@ -23,10 +23,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 final class InternalAudioRecorder {
     private static final String TAG = "InternalAudioRecorder";
-    private static final int BIT_RATE = 196_000;
+    private static final int AAC_BIT_RATE = 196_000;
+    private static final int OPUS_BIT_RATE = 160_000;
     private static final int CHANNEL_COUNT = 1;
     private static final int READ_SAMPLES = 4096;
-    private static final float MIC_GAIN = 1.4f;
+    private static final int PLAYBACK_MIX_PERCENT = 40;
+    private static final int MIC_MIX_PERCENT = 55;
     private static final long CODEC_TIMEOUT_US = 10_000L;
     private static final int MAX_CODEC_POLLS = 200;
     private static final long WORKER_JOIN_TIMEOUT_MS = 5_000L;
@@ -36,6 +38,9 @@ final class InternalAudioRecorder {
     private final boolean capturePlayback;
     private final boolean includeMicrophone;
     private final int sampleRate;
+    private final int audioEncoding;
+    private final boolean uncompressed;
+    private final ByteBuffer pcmBuffer;
     private final AtomicReference<Exception> failure = new AtomicReference<>();
     private final AtomicBoolean codecResourcesFinished = new AtomicBoolean();
     private final MediaCodec.BufferInfo codecBufferInfo = new MediaCodec.BufferInfo();
@@ -52,6 +57,7 @@ final class InternalAudioRecorder {
     private Thread worker;
     private volatile boolean running;
     private volatile boolean paused;
+    private volatile boolean microphoneMuted;
     private boolean prepared;
     private boolean started;
     private boolean codecStarted;
@@ -65,7 +71,8 @@ final class InternalAudioRecorder {
             Context context,
             MediaProjection projection,
             AudioSource audioSource,
-            int sampleRate) {
+            int sampleRate,
+            int audioEncoding) {
         this.context = context.getApplicationContext();
         this.projection = projection;
         this.capturePlayback = audioSource.usesInternalAudio();
@@ -73,7 +80,12 @@ final class InternalAudioRecorder {
         if (!capturePlayback && !includeMicrophone) {
             throw new IllegalArgumentException("An audio capture source is required");
         }
-        this.sampleRate = RecordingOptions.normalizeSampleRate(sampleRate);
+        this.audioEncoding = audioEncoding;
+        this.sampleRate = audioEncoding == OverlaySettings.AUDIO_OPUS
+                ? RecordingOptions.SAMPLE_RATE_48_KHZ
+                : RecordingOptions.normalizeSampleRate(sampleRate);
+        uncompressed = audioEncoding == OverlaySettings.AUDIO_PCM;
+        pcmBuffer = uncompressed ? ByteBuffer.allocateDirect(READ_SAMPLES * 2) : null;
     }
 
     synchronized void prepare() throws IOException {
@@ -82,8 +94,10 @@ final class InternalAudioRecorder {
         }
         try {
             setup();
-            codec.start();
-            codecStarted = true;
+            if (codec != null) {
+                codec.start();
+                codecStarted = true;
+            }
             prepared = true;
         } catch (SecurityException error) {
             cleanUpFailedStart();
@@ -184,16 +198,23 @@ final class InternalAudioRecorder {
             ensureInitialized(microphoneRecord, "Microphone recorder");
         }
 
-        MediaFormat codecFormat = MediaFormat.createAudioFormat(
-                MediaFormat.MIMETYPE_AUDIO_AAC,
-                sampleRate,
-                CHANNEL_COUNT);
-        codecFormat.setInteger(
-                MediaFormat.KEY_AAC_PROFILE,
-                MediaCodecInfo.CodecProfileLevel.AACObjectLC);
-        codecFormat.setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE);
+        if (uncompressed) {
+            negotiatedOutputFormat = MediaFormat.createAudioFormat(
+                    MediaFormat.MIMETYPE_AUDIO_RAW, sampleRate, CHANNEL_COUNT);
+            negotiatedOutputFormat.setInteger(
+                    MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT);
+            return;
+        }
+        boolean opus = audioEncoding == OverlaySettings.AUDIO_OPUS;
+        String mime = opus ? MediaFormat.MIMETYPE_AUDIO_OPUS : MediaFormat.MIMETYPE_AUDIO_AAC;
+        MediaFormat codecFormat = MediaFormat.createAudioFormat(mime, sampleRate, CHANNEL_COUNT);
+        if (!opus) {
+            codecFormat.setInteger(MediaFormat.KEY_AAC_PROFILE,
+                    MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+        }
+        codecFormat.setInteger(MediaFormat.KEY_BIT_RATE, opus ? OPUS_BIT_RATE : AAC_BIT_RATE);
         codecFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, bufferSize);
-        codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
+        codec = MediaCodec.createEncoderByType(mime);
         codec.configure(codecFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
     }
 
@@ -243,7 +264,7 @@ final class InternalAudioRecorder {
         }
     }
 
-    /** Reads a single source straight into the AAC encoder's direct input buffer. */
+    /** Reads a single source directly into the active audio input buffer. */
     private void captureDirectAudio(AudioRecord record, String sourceName)
             throws IOException, InterruptedException {
         while (running) {
@@ -254,14 +275,14 @@ final class InternalAudioRecorder {
             if (inputIndex < 0) {
                 break;
             }
-            ByteBuffer input = codec.getInputBuffer(inputIndex);
+            ByteBuffer input = inputBuffer(inputIndex);
             if (input == null) {
-                throw new IOException("AAC encoder input buffer is unavailable");
+                throw new IOException("audio encoder input buffer is unavailable");
             }
             input.clear();
             int maximumBytes = Math.min(input.remaining(), READ_SAMPLES * 2) & ~1;
             if (maximumBytes == 0) {
-                throw new IOException("AAC encoder input buffer is too small");
+                throw new IOException("audio encoder input buffer is too small");
             }
             if (!running) {
                 queueEmptyInputBuffer(inputIndex);
@@ -281,6 +302,11 @@ final class InternalAudioRecorder {
             }
 
             int frameCount = (byteCount & ~1) / 2;
+            if (includeMicrophone && microphoneMuted) {
+                for (int frame = 0; frame < frameCount; frame++) {
+                    input.putShort(frame * 2, (short) 0);
+                }
+            }
             long bufferStartFrame = captureSessionFrames;
             captureSessionFrames += frameCount;
             long bufferStartNanos = estimateBufferStartNanos(
@@ -336,7 +362,7 @@ final class InternalAudioRecorder {
                 break;
             }
             int sampleCount = Math.min(primaryCount, microphoneCount);
-            mix(primary, microphone, sampleCount);
+            if (!microphoneMuted) mix(primary, microphone, sampleCount);
             queueShortPcm(primary, sampleCount, bufferStartNanos);
             drainCodec(false);
         }
@@ -351,11 +377,11 @@ final class InternalAudioRecorder {
         }
     }
 
-    private void mix(short[] playback, short[] microphone, int count) {
+    static void mix(short[] playback, short[] microphone, int count) {
+        // Keep both signals below full scale even when their peaks coincide.
         for (int i = 0; i < count; i++) {
-            int mic = Math.round(microphone[i] * MIC_GAIN);
-            int mixed = playback[i] + mic;
-            playback[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, mixed));
+            int mixed = playback[i] * PLAYBACK_MIX_PERCENT + microphone[i] * MIC_MIX_PERCENT;
+            playback[i] = (short) (mixed / 100);
         }
     }
 
@@ -389,7 +415,12 @@ final class InternalAudioRecorder {
         return estimateNanos;
     }
 
+    private ByteBuffer inputBuffer(int inputIndex) {
+        return uncompressed ? pcmBuffer : codec.getInputBuffer(inputIndex);
+    }
+
     private int dequeueInputBufferWhileCapturing() throws IOException {
+        if (uncompressed) return running ? 0 : -1;
         while (running) {
             int inputIndex = codec.dequeueInputBuffer(CODEC_TIMEOUT_US);
             if (inputIndex >= 0) {
@@ -401,6 +432,7 @@ final class InternalAudioRecorder {
     }
 
     private int dequeueInputBufferForPcm() throws IOException {
+        if (uncompressed) return 0;
         for (int attempts = 0; attempts < MAX_CODEC_POLLS; attempts++) {
             int inputIndex = codec.dequeueInputBuffer(CODEC_TIMEOUT_US);
             if (inputIndex >= 0) {
@@ -408,7 +440,7 @@ final class InternalAudioRecorder {
             }
             drainCodec(false);
         }
-        throw new IOException("Timed out while feeding the AAC encoder");
+        throw new IOException("Timed out while feeding the audio encoder");
     }
 
     private void queueDirectPcmBuffer(
@@ -460,6 +492,7 @@ final class InternalAudioRecorder {
         }
         queueAudioInputBuffer(
                 inputIndex,
+                input,
                 writtenFrames * 2,
                 firstIncludedFrameNanos,
                 writtenFrames);
@@ -489,14 +522,14 @@ final class InternalAudioRecorder {
                     frameCount);
             while (sourceFrame < sourceEndFrame) {
                 int inputIndex = dequeueInputBufferForPcm();
-                ByteBuffer input = codec.getInputBuffer(inputIndex);
+                ByteBuffer input = inputBuffer(inputIndex);
                 if (input == null) {
-                    throw new IOException("AAC encoder input buffer is unavailable");
+                    throw new IOException("audio encoder input buffer is unavailable");
                 }
                 input.clear();
                 int chunkFrames = Math.min(input.remaining() / 2, sourceEndFrame - sourceFrame);
                 if (chunkFrames == 0) {
-                    throw new IOException("AAC encoder input buffer is too small");
+                    throw new IOException("audio encoder input buffer is too small");
                 }
                 input.order(ByteOrder.LITTLE_ENDIAN)
                         .asShortBuffer()
@@ -505,6 +538,7 @@ final class InternalAudioRecorder {
                         + AudioFrameClock.framesToNanos(sourceFrame, sampleRate);
                 queueAudioInputBuffer(
                         inputIndex,
+                        input,
                         chunkFrames * 2,
                         chunkStartNanos,
                         chunkFrames);
@@ -542,14 +576,23 @@ final class InternalAudioRecorder {
 
     private void queueAudioInputBuffer(
             int inputIndex,
+            ByteBuffer input,
             int byteCount,
             long firstFrameNanos,
-            int frameCount) {
+            int frameCount) throws IOException {
         long presentationTimeUs = timeline.toPresentationTimeUs(firstFrameNanos);
         if (presentationTimeUs <= lastQueuedPresentationTimeUs) {
             presentationTimeUs = lastQueuedPresentationTimeUs + 1L;
         }
-        codec.queueInputBuffer(inputIndex, 0, byteCount, presentationTimeUs, 0);
+        if (uncompressed) {
+            ensureOutputTrackConfigured();
+            codecBufferInfo.set(0, byteCount, presentationTimeUs, 0);
+            input.position(0);
+            input.limit(byteCount);
+            outputTrack.writeSampleData(input, codecBufferInfo);
+        } else {
+            codec.queueInputBuffer(inputIndex, 0, byteCount, presentationTimeUs, 0);
+        }
         lastQueuedPresentationTimeUs = presentationTimeUs;
         long durationUs = AudioFrameClock.framesToNanos(frameCount, sampleRate) / 1_000L;
         endOfStreamPresentationTimeUs = Math.max(
@@ -558,6 +601,7 @@ final class InternalAudioRecorder {
     }
 
     private void queueEmptyInputBuffer(int inputIndex) {
+        if (uncompressed) return;
         codec.queueInputBuffer(
                 inputIndex,
                 0,
@@ -567,6 +611,7 @@ final class InternalAudioRecorder {
     }
 
     private void finishEncodingStream() throws IOException {
+        if (uncompressed) return;
         queueEndOfStream();
         drainCodec(true);
     }
@@ -589,10 +634,11 @@ final class InternalAudioRecorder {
             }
             drainCodec(false);
         }
-        throw new IOException("Timed out while signaling the AAC encoder");
+        throw new IOException("Timed out while signaling the audio encoder");
     }
 
     private void drainCodec(boolean waitForEnd) throws IOException {
+        if (uncompressed) return;
         int emptyPolls = 0;
         while (true) {
             int outputIndex = codec.dequeueOutputBuffer(
@@ -603,13 +649,13 @@ final class InternalAudioRecorder {
                     return;
                 }
                 if (++emptyPolls >= MAX_CODEC_POLLS) {
-                    throw new IOException("Timed out while draining the AAC encoder");
+                    throw new IOException("Timed out while draining the audio encoder");
                 }
                 continue;
             }
             if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                 if (negotiatedOutputFormat != null) {
-                    throw new IOException("AAC output format changed more than once");
+                    throw new IOException("Audio output format changed more than once");
                 }
                 negotiatedOutputFormat = codec.getOutputFormat();
                 emptyPolls = 0;
@@ -623,7 +669,7 @@ final class InternalAudioRecorder {
             try {
                 ByteBuffer output = codec.getOutputBuffer(outputIndex);
                 if (codecBufferInfo.size > 0 && output == null) {
-                    throw new IOException("AAC encoder output buffer is unavailable");
+                    throw new IOException("audio encoder output buffer is unavailable");
                 }
                 if (output != null
                         && codecBufferInfo.size > 0
@@ -649,10 +695,14 @@ final class InternalAudioRecorder {
             return;
         }
         if (negotiatedOutputFormat == null) {
-            throw new IOException("AAC samples arrived before the output format");
+            throw new IOException("Audio samples arrived before the output format");
         }
         outputTrack.setFormat(negotiatedOutputFormat);
         outputFormatRegistered = true;
+    }
+
+    void setMicrophoneMuted(boolean muted) {
+        microphoneMuted = muted;
     }
 
     synchronized void pause() {
@@ -794,13 +844,13 @@ final class InternalAudioRecorder {
                 try {
                     codec.stop();
                 } catch (Exception error) {
-                    Log.w(TAG, "Unable to stop AAC encoder", error);
+                    Log.w(TAG, "Unable to stop audio encoder", error);
                 }
             }
             try {
                 codec.release();
             } catch (Exception error) {
-                Log.w(TAG, "Unable to release AAC encoder", error);
+                Log.w(TAG, "Unable to release audio encoder", error);
             }
             codec = null;
         }

@@ -10,6 +10,8 @@ final class RecordingOptions {
     static final int VIDEO_BITRATE_8_MBPS = 8_000_000;
     static final int VIDEO_BITRATE_16_MBPS = 16_000_000;
     static final int VIDEO_BITRATE_24_MBPS = 24_000_000;
+    static final int VIDEO_BITRATE_40_MBPS = 40_000_000;
+    static final int VIDEO_BITRATE_60_MBPS = 60_000_000;
     static final int DEFAULT_VIDEO_BITRATE = VIDEO_BITRATE_AUTO;
 
     static final int VIDEO_RESOLUTION_NATIVE = 0;
@@ -24,6 +26,7 @@ final class RecordingOptions {
     static final int VIDEO_FRAME_RATE_120_FPS = 120;
     static final int VIDEO_FRAME_RATE_90_FPS = 90;
     static final int VIDEO_FRAME_RATE_60_FPS = 60;
+    static final int VIDEO_FRAME_RATE_50_FPS = 50;
     static final int VIDEO_FRAME_RATE_30_FPS = 30;
     static final int DEFAULT_VIDEO_FRAME_RATE = VIDEO_FRAME_RATE_AUTO;
 
@@ -59,7 +62,9 @@ final class RecordingOptions {
         if (value == VIDEO_BITRATE_4_MBPS
                 || value == VIDEO_BITRATE_8_MBPS
                 || value == VIDEO_BITRATE_16_MBPS
-                || value == VIDEO_BITRATE_24_MBPS) {
+                || value == VIDEO_BITRATE_24_MBPS
+                || value == VIDEO_BITRATE_40_MBPS
+                || value == VIDEO_BITRATE_60_MBPS) {
             return value;
         }
         return VIDEO_BITRATE_AUTO;
@@ -74,13 +79,14 @@ final class RecordingOptions {
                 || value == VIDEO_RESOLUTION_2160P) {
             return value;
         }
-        return DEFAULT_VIDEO_RESOLUTION;
+        return VIDEO_RESOLUTION_1080P;
     }
 
     static int normalizeVideoFrameRate(int value) {
         if (value == VIDEO_FRAME_RATE_120_FPS
                 || value == VIDEO_FRAME_RATE_90_FPS
                 || value == VIDEO_FRAME_RATE_60_FPS
+                || value == VIDEO_FRAME_RATE_50_FPS
                 || value == VIDEO_FRAME_RATE_30_FPS) {
             return value;
         }

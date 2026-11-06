@@ -16,8 +16,13 @@ import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -113,6 +119,8 @@ internal fun SettingsScreen(
     onCountdownSelected: (Int) -> Unit,
     onNamingPatternSelected: (Int) -> Unit,
     onOrientationSelected: (Int) -> Unit,
+    onApplySmoothProfile: () -> Unit,
+    onApplyNativeDetailProfile: () -> Unit,
     onViewOnGitHub: () -> Unit,
     onViewLicense: () -> Unit,
     onOpenExternalUrl: (String) -> Unit,
@@ -199,6 +207,30 @@ internal fun SettingsScreen(
 
     val context = LocalContext.current
     val scrollBehavior = MiuixScrollBehavior()
+    val overlaySettings = remember(context) { OverlaySettings(context) }
+    var controls by remember(overlaySettings) { mutableStateOf(overlaySettings.controls()) }
+    var camera by remember(overlaySettings) { mutableIntStateOf(overlaySettings.camera()) }
+    var privateControls by remember(overlaySettings) { mutableStateOf(overlaySettings.privateControls()) }
+    var privateCamera by remember(overlaySettings) { mutableStateOf(overlaySettings.privateCamera()) }
+    var originalCamera by remember(overlaySettings) { mutableStateOf(overlaySettings.originalCamera()) }
+    var audioEncoding by remember(overlaySettings) { mutableIntStateOf(overlaySettings.audioEncoding()) }
+    var section by rememberSaveable { mutableIntStateOf(1) }
+    val sections = listOf(
+        R.string.section_appearance,
+        R.string.section_options,
+        R.string.section_camera_controls,
+        R.string.section_about,
+    )
+    val cameras = listOf(
+        stringResource(R.string.camera_off),
+        stringResource(R.string.camera_front),
+        stringResource(R.string.camera_rear),
+    )
+    val audioEncodings = listOf(
+        stringResource(R.string.audio_encoding_aac),
+        stringResource(R.string.audio_encoding_opus),
+        stringResource(R.string.audio_encoding_pcm),
+    )
     val themeOptions = remember(context) {
         listOf(
             context.getString(R.string.theme_system),
@@ -215,6 +247,7 @@ internal fun SettingsScreen(
             context.getString(R.string.audio_microphone),
             context.getString(R.string.audio_internal),
             context.getString(R.string.audio_both),
+            context.getString(R.string.audio_both_mixed),
         )
     }
     val sampleRateOptions = remember(context) {
@@ -239,6 +272,7 @@ internal fun SettingsScreen(
             context.getString(R.string.video_frame_rate_120),
             context.getString(R.string.video_frame_rate_90),
             context.getString(R.string.video_frame_rate_60),
+            context.getString(R.string.video_frame_rate_50),
             context.getString(R.string.video_frame_rate_30),
         )
     }
@@ -249,6 +283,8 @@ internal fun SettingsScreen(
             context.getString(R.string.video_bitrate_8),
             context.getString(R.string.video_bitrate_16),
             context.getString(R.string.video_bitrate_24),
+            context.getString(R.string.video_bitrate_40),
+            context.getString(R.string.video_bitrate_60),
         )
     }
     val videoCodecOptions = remember(context) {
@@ -295,175 +331,315 @@ internal fun SettingsScreen(
                 )
             },
         ) { innerPadding ->
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .scrollEndHaptic()
-                    .overScrollVertical()
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
-                contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
-                    bottom = 28.dp,
-                ),
-            ) {
-                item {
-                    SmallTitle(text = stringResource(R.string.section_appearance))
-                    PreferenceCard {
-                        SelectablePreference(
-                            title = stringResource(R.string.theme_label),
-                            items = themeOptions,
-                            selectedIndex = selectedThemeIndex,
-                            enabled = true,
-                            predictiveBackEnabled = enablePredictiveBack,
-                            dismissRequestKey = popupDismissRequestKey,
-                            onExpandedChange = { settingsPopupExpanded = it },
-                            onSelected = onThemeSelected,
-                        )
-                        SliderPreference(
-                            title = stringResource(R.string.page_scale_label),
-                            summary = "${pageScaleSlider.roundToInt()}%",
-                            value = pageScaleSlider,
-                            valueRange = 90f..110f,
-                            steps = 19,
-                            onValueChange = { pageScaleSlider = it },
-                            onValueChangeFinished = {
-                                onPageScaleSelected(pageScaleSlider.roundToInt().coerceIn(90, 110))
-                            },
-                        )
-                        SwitchPreference(
-                            title = stringResource(R.string.enable_predictive_back),
-                            summary = stringResource(R.string.enable_predictive_back_summary),
-                            checked = enablePredictiveBack,
-                            onCheckedChange = onEnablePredictiveBackChanged,
-                        )
-                    }
-                }
-
-                item {
-                    SmallTitle(text = stringResource(R.string.section_options))
-                    PreferenceCard {
-                        SelectablePreference(
-                            title = stringResource(R.string.video_resolution_label),
-                            items = videoResolutionOptions,
-                            selectedIndex = selectedVideoResolutionIndex,
-                            enabled = optionsEnabled,
-                            predictiveBackEnabled = enablePredictiveBack,
-                            dismissRequestKey = popupDismissRequestKey,
-                            onExpandedChange = { settingsPopupExpanded = it },
-                            onSelected = onVideoResolutionSelected,
-                        )
-                        SelectablePreference(
-                            title = stringResource(R.string.video_frame_rate_label),
-                            items = videoFrameRateOptions,
-                            selectedIndex = selectedVideoFrameRateIndex,
-                            enabled = optionsEnabled,
-                            predictiveBackEnabled = enablePredictiveBack,
-                            dismissRequestKey = popupDismissRequestKey,
-                            onExpandedChange = { settingsPopupExpanded = it },
-                            onSelected = onVideoFrameRateSelected,
-                        )
-                        SelectablePreference(
-                            title = stringResource(R.string.audio_label),
-                            items = audioOptions,
-                            selectedIndex = selectedAudioIndex,
-                            enabled = optionsEnabled,
-                            predictiveBackEnabled = enablePredictiveBack,
-                            dismissRequestKey = popupDismissRequestKey,
-                            onExpandedChange = { settingsPopupExpanded = it },
-                            onSelected = onAudioSelected,
-                        )
-                        SelectablePreference(
-                            title = stringResource(R.string.sample_rate_label),
-                            items = sampleRateOptions,
-                            selectedIndex = selectedSampleRateIndex,
-                            enabled = optionsEnabled,
-                            predictiveBackEnabled = enablePredictiveBack,
-                            dismissRequestKey = popupDismissRequestKey,
-                            onExpandedChange = { settingsPopupExpanded = it },
-                            onSelected = onSampleRateSelected,
-                        )
-                        SwitchPreference(
-                            title = stringResource(R.string.force_16_by_9_letterboxing),
-                            summary = stringResource(
-                                R.string.force_16_by_9_letterboxing_summary,
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val wide = maxWidth >= 700.dp
+                Row(Modifier.fillMaxSize()) {
+                    if (wide) {
+                        LazyColumn(
+                            modifier = Modifier.width(248.dp).fillMaxHeight(),
+                            contentPadding = PaddingValues(
+                                top = innerPadding.calculateTopPadding() + 8.dp,
+                                bottom = 20.dp,
                             ),
-                            checked = force16By9Letterboxing,
-                            enabled = optionsEnabled,
-                            onCheckedChange = onForce16By9LetterboxingChanged,
-                        )
-                        SwitchPreference(
-                            title = stringResource(R.string.stop_when_lock_screen),
-                            summary = stringResource(
-                                R.string.stop_when_lock_screen_summary,
-                            ),
-                            checked = stopWhenLockScreen,
-                            enabled = optionsEnabled,
-                            onCheckedChange = onStopWhenLockScreenChanged,
-                        )
-                        SelectablePreference(
-                            title = stringResource(R.string.video_bitrate_label),
-                            items = videoBitrateOptions,
-                            selectedIndex = selectedVideoBitrateIndex,
-                            enabled = optionsEnabled,
-                            predictiveBackEnabled = enablePredictiveBack,
-                            dismissRequestKey = popupDismissRequestKey,
-                            onExpandedChange = { settingsPopupExpanded = it },
-                            onSelected = onVideoBitrateSelected,
-                        )
-                        SelectablePreference(
-                            title = stringResource(R.string.video_codec_label),
-                            items = videoCodecOptions,
-                            selectedIndex = selectedVideoCodecIndex,
-                            enabled = optionsEnabled,
-                            predictiveBackEnabled = enablePredictiveBack,
-                            dismissRequestKey = popupDismissRequestKey,
-                            onExpandedChange = { settingsPopupExpanded = it },
-                            onSelected = onVideoCodecSelected,
-                        )
-                        SelectablePreference(
-                            title = stringResource(R.string.recording_countdown_label),
-                            items = countdownOptions,
-                            selectedIndex = selectedCountdownIndex,
-                            enabled = optionsEnabled,
-                            predictiveBackEnabled = enablePredictiveBack,
-                            dismissRequestKey = popupDismissRequestKey,
-                            onExpandedChange = { settingsPopupExpanded = it },
-                            onSelected = onCountdownSelected,
-                        )
-                        SelectablePreference(
-                            title = stringResource(R.string.naming_pattern_label),
-                            items = namingPatternOptions,
-                            selectedIndex = selectedNamingPatternIndex,
-                            enabled = optionsEnabled,
-                            predictiveBackEnabled = enablePredictiveBack,
-                            dismissRequestKey = popupDismissRequestKey,
-                            onExpandedChange = { settingsPopupExpanded = it },
-                            onSelected = onNamingPatternSelected,
-                        )
-                        SelectablePreference(
-                            title = stringResource(R.string.recording_orientation_label),
-                            items = orientationOptions,
-                            selectedIndex = selectedOrientationIndex,
-                            enabled = optionsEnabled,
-                            predictiveBackEnabled = enablePredictiveBack,
-                            dismissRequestKey = popupDismissRequestKey,
-                            onExpandedChange = { settingsPopupExpanded = it },
-                            onSelected = onOrientationSelected,
-                        )
+                        ) {
+                            items(sections.size) { index ->
+                                val selected = section == index
+                                val shape = RoundedCornerShape(14.dp)
+                                Text(
+                                    text = stringResource(sections[index]),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 3.dp)
+                                        .background(
+                                            if (selected) MiuixTheme.colorScheme.primaryContainer
+                                            else Color.Transparent,
+                                            shape,
+                                        )
+                                        .selectable(
+                                            selected = selected,
+                                            role = Role.Tab,
+                                            onClick = {
+                                                if (section != index) {
+                                                    popupDismissRequestKey++
+                                                    settingsPopupExpanded = false
+                                                    section = index
+                                                }
+                                            },
+                                        )
+                                        .padding(horizontal = 16.dp, vertical = 15.dp),
+                                )
+                            }
+                        }
                     }
-                }
+                    key(if (wide) section else -1) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .scrollEndHaptic()
+                                .overScrollVertical()
+                                .nestedScroll(scrollBehavior.nestedScrollConnection),
+                            contentPadding = PaddingValues(
+                                top = innerPadding.calculateTopPadding(),
+                                bottom = 28.dp,
+                            ),
+                        ) {
+                            if (!wide || section == 0) item {
+                                SmallTitle(text = stringResource(R.string.section_appearance))
+                                PreferenceCard {
+                                    SelectablePreference(
+                                        title = stringResource(R.string.theme_label),
+                                        items = themeOptions,
+                                        selectedIndex = selectedThemeIndex,
+                                        enabled = true,
+                                        predictiveBackEnabled = enablePredictiveBack,
+                                        dismissRequestKey = popupDismissRequestKey,
+                                        onExpandedChange = { settingsPopupExpanded = it },
+                                        onSelected = onThemeSelected,
+                                    )
+                                    SliderPreference(
+                                        title = stringResource(R.string.page_scale_label),
+                                        summary = "${pageScaleSlider.roundToInt()}%",
+                                        value = pageScaleSlider,
+                                        valueRange = 90f..110f,
+                                        steps = 19,
+                                        onValueChange = { pageScaleSlider = it },
+                                        onValueChangeFinished = {
+                                            onPageScaleSelected(pageScaleSlider.roundToInt().coerceIn(90, 110))
+                                        },
+                                    )
+                                    SwitchPreference(
+                                        title = stringResource(R.string.enable_predictive_back),
+                                        summary = stringResource(R.string.enable_predictive_back_summary),
+                                        checked = enablePredictiveBack,
+                                        onCheckedChange = onEnablePredictiveBackChanged,
+                                    )
+                                }
+                            }
 
-                item {
-                    SmallTitle(text = stringResource(R.string.section_about))
-                    PreferenceCard {
-                        ArrowPreference(
-                            title = stringResource(R.string.about_this_project),
-                            onClick = { openSubpage(SETTINGS_PAGE_ABOUT_PROJECT) },
-                        )
-                        ArrowPreference(
-                            title = stringResource(R.string.open_source_licenses),
-                            onClick = { openSubpage(SETTINGS_PAGE_OPEN_SOURCE_LICENSES) },
-                        )
+                            if (!wide || section == 1) item {
+                                SmallTitle(text = stringResource(R.string.section_options))
+                                PreferenceCard {
+                                    if (optionsEnabled) {
+                                        ArrowPreference(
+                                            title = stringResource(R.string.native_detail_profile),
+                                            summary = stringResource(R.string.native_detail_profile_summary),
+                                            onClick = onApplyNativeDetailProfile,
+                                        )
+                                        ArrowPreference(
+                                            title = stringResource(R.string.smooth_screen_profile),
+                                            summary = stringResource(R.string.smooth_screen_profile_summary),
+                                            onClick = onApplySmoothProfile,
+                                        )
+                                    }
+                                    SelectablePreference(
+                                        title = stringResource(R.string.video_resolution_label),
+                                        items = videoResolutionOptions,
+                                        selectedIndex = selectedVideoResolutionIndex,
+                                        enabled = optionsEnabled,
+                                        predictiveBackEnabled = enablePredictiveBack,
+                                        dismissRequestKey = popupDismissRequestKey,
+                                        onExpandedChange = { settingsPopupExpanded = it },
+                                        onSelected = onVideoResolutionSelected,
+                                    )
+                                    SelectablePreference(
+                                        title = stringResource(R.string.video_frame_rate_label),
+                                        items = videoFrameRateOptions,
+                                        selectedIndex = selectedVideoFrameRateIndex,
+                                        enabled = optionsEnabled,
+                                        predictiveBackEnabled = enablePredictiveBack,
+                                        dismissRequestKey = popupDismissRequestKey,
+                                        onExpandedChange = { settingsPopupExpanded = it },
+                                        onSelected = onVideoFrameRateSelected,
+                                    )
+                                    SelectablePreference(
+                                        title = stringResource(R.string.audio_label),
+                                        items = audioOptions,
+                                        selectedIndex = selectedAudioIndex,
+                                        enabled = optionsEnabled,
+                                        predictiveBackEnabled = enablePredictiveBack,
+                                        dismissRequestKey = popupDismissRequestKey,
+                                        onExpandedChange = { settingsPopupExpanded = it },
+                                        onSelected = onAudioSelected,
+                                    )
+                                    SelectablePreference(
+                                        title = stringResource(R.string.audio_encoding),
+                                        items = audioEncodings,
+                                        selectedIndex = audioEncoding,
+                                        enabled = optionsEnabled,
+                                        predictiveBackEnabled = enablePredictiveBack,
+                                        dismissRequestKey = popupDismissRequestKey,
+                                        onExpandedChange = { settingsPopupExpanded = it },
+                                        onSelected = {
+                                            audioEncoding = it
+                                            overlaySettings.setAudioEncoding(it)
+                                        },
+                                    )
+                                    SelectablePreference(
+                                        title = stringResource(R.string.sample_rate_label),
+                                        items = sampleRateOptions,
+                                        selectedIndex = if (audioEncoding == OverlaySettings.AUDIO_OPUS) {
+                                            1
+                                        } else {
+                                            selectedSampleRateIndex
+                                        },
+                                        enabled = optionsEnabled && audioEncoding != OverlaySettings.AUDIO_OPUS,
+                                        predictiveBackEnabled = enablePredictiveBack,
+                                        dismissRequestKey = popupDismissRequestKey,
+                                        onExpandedChange = { settingsPopupExpanded = it },
+                                        onSelected = onSampleRateSelected,
+                                    )
+                                    SwitchPreference(
+                                        title = stringResource(R.string.force_16_by_9_letterboxing),
+                                        summary = stringResource(
+                                            R.string.force_16_by_9_letterboxing_summary,
+                                        ),
+                                        checked = force16By9Letterboxing,
+                                        enabled = optionsEnabled,
+                                        onCheckedChange = onForce16By9LetterboxingChanged,
+                                    )
+                                    SwitchPreference(
+                                        title = stringResource(R.string.stop_when_lock_screen),
+                                        summary = stringResource(
+                                            R.string.stop_when_lock_screen_summary,
+                                        ),
+                                        checked = stopWhenLockScreen,
+                                        enabled = optionsEnabled,
+                                        onCheckedChange = onStopWhenLockScreenChanged,
+                                    )
+                                    SelectablePreference(
+                                        title = stringResource(R.string.video_bitrate_label),
+                                        items = videoBitrateOptions,
+                                        selectedIndex = selectedVideoBitrateIndex,
+                                        enabled = optionsEnabled,
+                                        predictiveBackEnabled = enablePredictiveBack,
+                                        dismissRequestKey = popupDismissRequestKey,
+                                        onExpandedChange = { settingsPopupExpanded = it },
+                                        onSelected = onVideoBitrateSelected,
+                                    )
+                                    SelectablePreference(
+                                        title = stringResource(R.string.video_codec_label),
+                                        items = videoCodecOptions,
+                                        selectedIndex = selectedVideoCodecIndex,
+                                        enabled = optionsEnabled,
+                                        predictiveBackEnabled = enablePredictiveBack,
+                                        dismissRequestKey = popupDismissRequestKey,
+                                        onExpandedChange = { settingsPopupExpanded = it },
+                                        onSelected = onVideoCodecSelected,
+                                    )
+                                    SelectablePreference(
+                                        title = stringResource(R.string.recording_countdown_label),
+                                        items = countdownOptions,
+                                        selectedIndex = selectedCountdownIndex,
+                                        enabled = optionsEnabled,
+                                        predictiveBackEnabled = enablePredictiveBack,
+                                        dismissRequestKey = popupDismissRequestKey,
+                                        onExpandedChange = { settingsPopupExpanded = it },
+                                        onSelected = onCountdownSelected,
+                                    )
+                                    SelectablePreference(
+                                        title = stringResource(R.string.naming_pattern_label),
+                                        items = namingPatternOptions,
+                                        selectedIndex = selectedNamingPatternIndex,
+                                        enabled = optionsEnabled,
+                                        predictiveBackEnabled = enablePredictiveBack,
+                                        dismissRequestKey = popupDismissRequestKey,
+                                        onExpandedChange = { settingsPopupExpanded = it },
+                                        onSelected = onNamingPatternSelected,
+                                    )
+                                    SelectablePreference(
+                                        title = stringResource(R.string.recording_orientation_label),
+                                        items = orientationOptions,
+                                        selectedIndex = selectedOrientationIndex,
+                                        enabled = optionsEnabled,
+                                        predictiveBackEnabled = enablePredictiveBack,
+                                        dismissRequestKey = popupDismissRequestKey,
+                                        onExpandedChange = { settingsPopupExpanded = it },
+                                        onSelected = onOrientationSelected,
+                                    )
+                                }
+                            }
+
+                            if (!wide || section == 2) item {
+                                SmallTitle(text = stringResource(R.string.section_camera_controls))
+                                PreferenceCard {
+                                    ArrowPreference(
+                                        title = stringResource(R.string.overlay_permission),
+                                        onClick = { context.findActivity()?.let(OverlaySettings::openPermission) },
+                                    )
+                                    SwitchPreference(
+                                        title = stringResource(R.string.floating_controls),
+                                        summary = stringResource(R.string.floating_controls_summary),
+                                        checked = controls,
+                                        enabled = optionsEnabled,
+                                        onCheckedChange = {
+                                            controls = it
+                                            overlaySettings.setControls(it)
+                                        },
+                                    )
+                                    SelectablePreference(
+                                        title = stringResource(R.string.camera_label),
+                                        items = cameras,
+                                        selectedIndex = camera,
+                                        enabled = optionsEnabled,
+                                        predictiveBackEnabled = enablePredictiveBack,
+                                        dismissRequestKey = popupDismissRequestKey,
+                                        onExpandedChange = { settingsPopupExpanded = it },
+                                        onSelected = {
+                                            camera = it
+                                            overlaySettings.setCamera(it)
+                                        },
+                                    )
+                                    SwitchPreference(
+                                        title = stringResource(R.string.private_controls),
+                                        summary = stringResource(R.string.private_controls_summary),
+                                        checked = privateControls,
+                                        enabled = optionsEnabled && controls,
+                                        onCheckedChange = {
+                                            privateControls = it
+                                            overlaySettings.setPrivateControls(it)
+                                        },
+                                    )
+                                    SwitchPreference(
+                                        title = stringResource(R.string.private_camera),
+                                        summary = stringResource(R.string.private_camera_summary),
+                                        checked = privateCamera,
+                                        enabled = optionsEnabled && camera != OverlaySettings.CAMERA_OFF,
+                                        onCheckedChange = {
+                                            privateCamera = it
+                                            overlaySettings.setPrivateCamera(it)
+                                        },
+                                    )
+                                    SwitchPreference(
+                                        title = stringResource(R.string.camera_original),
+                                        summary = stringResource(R.string.camera_original_summary),
+                                        checked = originalCamera,
+                                        enabled = optionsEnabled && camera != OverlaySettings.CAMERA_OFF,
+                                        onCheckedChange = {
+                                            originalCamera = it
+                                            overlaySettings.setOriginalCamera(it)
+                                        },
+                                    )
+                                    if (camera != OverlaySettings.CAMERA_OFF) {
+                                        CameraLayoutEditor(overlaySettings)
+                                    }
+                                }
+                            }
+
+                            if (!wide || section == 3) item {
+                                SmallTitle(text = stringResource(R.string.section_about))
+                                PreferenceCard {
+                                    ArrowPreference(
+                                        title = stringResource(R.string.about_this_project),
+                                        onClick = { openSubpage(SETTINGS_PAGE_ABOUT_PROJECT) },
+                                    )
+                                    ArrowPreference(
+                                        title = stringResource(R.string.open_source_licenses),
+                                        onClick = { openSubpage(SETTINGS_PAGE_OPEN_SOURCE_LICENSES) },
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

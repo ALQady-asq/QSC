@@ -300,7 +300,7 @@ final class VideoTrackRecorder {
                         continue;
                     }
                     try {
-                        configureEncoder(candidate, mimeType, frameRate);
+                        configureEncoderWithFallback(candidate, mimeType, frameRate);
                         logConfiguredEncoder(candidate, frameRate);
                         return;
                     } catch (Exception error) {
@@ -318,10 +318,24 @@ final class VideoTrackRecorder {
                 lastFailure);
     }
 
+    private void configureEncoderWithFallback(
+            MediaCodecInfo codecInfo, String mimeType, int frameRate) throws IOException {
+        if (codecInfo.isHardwareAccelerated()) {
+            try {
+                configureEncoder(codecInfo, mimeType, frameRate, true);
+                return;
+            } catch (IOException error) {
+                Log.w(TAG, "Encoder rejected the real-time hint; retrying the same profile", error);
+            }
+        }
+        configureEncoder(codecInfo, mimeType, frameRate, false);
+    }
+
     private void configureEncoder(
             MediaCodecInfo codecInfo,
             String mimeType,
-            int frameRate) throws IOException {
+            int frameRate,
+            boolean realtime) throws IOException {
         MediaCodec candidateCodec = null;
         Surface candidateSurface = null;
         try {
@@ -332,6 +346,10 @@ final class VideoTrackRecorder {
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
             format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
             format.setInteger(MediaFormat.KEY_FRAME_RATE, frameRate);
+            if (realtime) {
+                // KEY_FRAME_RATE is also the operating rate when priority is real-time.
+                format.setInteger(MediaFormat.KEY_PRIORITY, 0);
+            }
             format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, I_FRAME_INTERVAL_SECONDS);
             format.setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, frameIntervalUs);
             format.setFloat(MediaFormat.KEY_MAX_FPS_TO_ENCODER, frameRate);
