@@ -40,6 +40,9 @@
     <string name="library_poko_annotations" translatable="false">Poko Annotations</string>
     <string name="library_aosp_systemui" translatable="false">Android Open Source Project (SystemUI)</string>
     <string name="library_asterisk_ng" translatable="false">AsteriskNG</string>
+    <string name="library_hidden_api_bypass" translatable="false">Android Hidden API Bypass</string>
+    <string name="version_hidden_api_bypass" translatable="false">6.2</string>
+    <string name="url_hidden_api_bypass" translatable="false">https://github.com/LSPosed/AndroidHiddenApiBypass</string>
     <string name="license_apache_2" translatable="false">Apache-2.0</string>
     <string name="license_gpl_3" translatable="false">GPL-3.0-only</string>
     <string name="license_mit" translatable="false">MIT</string>
@@ -230,6 +233,9 @@
     <string name="camera_rear">Rear camera</string>
     <string name="private_controls">Show bar only when paused</string>
     <string name="private_controls_summary">Pause from the notification to use the bar. It stays out of the recorded frames.</string>
+    <string name="exclude_controls">Keep bar out of video</string>
+    <string name="exclude_controls_summary">Keep the bar visible while recording and request its exclusion from video. Device support varies; if unavailable, the bar appears only while paused. Check a short test recording on your device.</string>
+    <string name="exclude_controls_unavailable">This system cannot exclude the recording bar. It will appear only while paused. Use the notification to pause.</string>
     <string name="private_camera">Show camera preview only when paused</string>
     <string name="private_camera_summary">Adjust the preview privately. Enable the separate camera video if you want to keep the footage.</string>
     <string name="camera_layout">Camera layout</string>

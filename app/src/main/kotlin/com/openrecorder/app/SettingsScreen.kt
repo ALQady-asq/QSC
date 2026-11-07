@@ -211,6 +211,7 @@ internal fun SettingsScreen(
     var controls by remember(overlaySettings) { mutableStateOf(overlaySettings.controls()) }
     var camera by remember(overlaySettings) { mutableIntStateOf(overlaySettings.camera()) }
     var privateControls by remember(overlaySettings) { mutableStateOf(overlaySettings.privateControls()) }
+    var excludeControls by remember(overlaySettings) { mutableStateOf(overlaySettings.excludeControlsFromCapture()) }
     var privateCamera by remember(overlaySettings) { mutableStateOf(overlaySettings.privateCamera()) }
     var originalCamera by remember(overlaySettings) { mutableStateOf(overlaySettings.originalCamera()) }
     var audioEncoding by remember(overlaySettings) { mutableIntStateOf(overlaySettings.audioEncoding()) }
@@ -599,6 +600,16 @@ internal fun SettingsScreen(
                                         onCheckedChange = {
                                             privateControls = it
                                             overlaySettings.setPrivateControls(it)
+                                        },
+                                    )
+                                    SwitchPreference(
+                                        title = stringResource(R.string.exclude_controls),
+                                        summary = stringResource(R.string.exclude_controls_summary),
+                                        checked = excludeControls,
+                                        enabled = optionsEnabled && controls && !privateControls,
+                                        onCheckedChange = {
+                                            excludeControls = it
+                                            overlaySettings.setExcludeControlsFromCapture(it)
                                         },
                                     )
                                     SwitchPreference(

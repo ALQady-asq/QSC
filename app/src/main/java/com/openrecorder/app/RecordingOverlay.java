@@ -17,8 +17,8 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import androidx.camera.view.PreviewView;
 import android.view.View;
-import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -35,7 +35,9 @@ final class RecordingOverlay {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final LongSupplier elapsed;
     private final OverlaySettings settings;
-    private final boolean privateControls;
+    private final RecordingControlsPolicy controlsPolicy;
+    private final OverlayCaptureExclusion captureExclusion = new OverlayCaptureExclusion();
+    private final ViewTreeObserver.OnPreDrawListener excludeControls = this::excludeControlsBeforeDraw;
     private final boolean privateCamera;
     private final Runnable applyCameraLayout = this::restoreCameraLayout;
     private final SharedPreferences.OnSharedPreferenceChangeListener cameraLayoutListener =
@@ -64,7 +66,6 @@ final class RecordingOverlay {
     private long lastDisplayedSecond = -1;
     private boolean collapsed;
     private boolean paused;
-    private boolean statusBarVisible = true;
     private final Runnable tick = new Runnable() {
         @Override public void run() {
             if (controls == null) return;
@@ -83,7 +84,8 @@ final class RecordingOverlay {
 
     RecordingOverlay(Context context, OverlaySettings settings, LongSupplier elapsed) {
         this.settings = settings;
-        privateControls = settings.privateControls();
+        controlsPolicy = new RecordingControlsPolicy(settings.privateControls(),
+                settings.excludeControlsFromCapture());
         privateCamera = settings.privateCamera();
         if (android.os.Build.VERSION.SDK_INT >= 30) {
             DisplayManager displays = context.getSystemService(DisplayManager.class);
@@ -159,16 +161,9 @@ final class RecordingOverlay {
         controls.addView(card, new FrameLayout.LayoutParams(-1, -2));
         controlsLayout = layout(-2, -2, Gravity.TOP | Gravity.RIGHT);
         updateControlsVisibility();
-        if (android.os.Build.VERSION.SDK_INT >= 30) {
-            controls.setOnApplyWindowInsetsListener((view, insets) -> {
-                boolean visible = insets.isVisible(WindowInsets.Type.statusBars());
-                if (statusBarVisible != visible) {
-                    statusBarVisible = visible;
-                    updateControlsVisibility();
-                    if (!visible) setCollapsed(true);
-                }
-                return view.onApplyWindowInsets(insets);
-            });
+        if (controlsPolicy.needsExclusion()) {
+            // The root surface exists by pre-draw. Reapply after relayouts and surface recreation.
+            controls.getViewTreeObserver().addOnPreDrawListener(excludeControls);
         }
         setCollapsed(true);
         try {
@@ -298,9 +293,31 @@ final class RecordingOverlay {
     }
 
     boolean hidePrivateWindows() {
-        if (privateControls && controls != null) setWindowVisible(controls, controlsLayout, false);
+        boolean hideControls = !controlsPolicy.visible(false) && controls != null;
+        if (hideControls) setWindowVisible(controls, controlsLayout, false);
         if (privateCamera && cameraView != null) setWindowVisible(cameraView, cameraLayout, false);
-        return (privateControls && controls != null) || (privateCamera && cameraView != null);
+        return hideControls || (privateCamera && cameraView != null);
+    }
+
+    private boolean excludeControlsBeforeDraw() {
+        if (controls == null || !controlsPolicy.needsExclusion()) return true;
+        try {
+            captureExclusion.apply(controls);
+            controlsPolicy.exclusionApplied();
+            if (controlsLayout.alpha == 0f && controlsPolicy.visible(paused)) {
+                updateControlsVisibility();
+            }
+            return true;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError error) {
+            Log.w("RecordingOverlay", "Controls exclusion unavailable; using pause-only controls", error);
+            controlsPolicy.exclusionUnavailable();
+            controls.getViewTreeObserver().removeOnPreDrawListener(excludeControls);
+            updateControlsVisibility();
+            android.widget.Toast.makeText(context, R.string.exclude_controls_unavailable,
+                    android.widget.Toast.LENGTH_LONG).show();
+            // Cancel this draw while WindowManager applies the visibility fallback.
+            return false;
+        }
     }
 
     private void setWindowVisible(View view, WindowManager.LayoutParams layout, boolean visible) {
@@ -312,7 +329,7 @@ final class RecordingOverlay {
     }
 
     private void updateControlsVisibility() {
-        setWindowVisible(controls, controlsLayout, statusBarVisible && (!privateControls || paused));
+        setWindowVisible(controls, controlsLayout, controlsPolicy.visible(paused));
     }
 
     void setPaused(boolean paused) {
@@ -336,6 +353,9 @@ final class RecordingOverlay {
         main.removeCallbacks(tick);
         main.removeCallbacks(applyCameraLayout);
         settings.removeListener(cameraLayoutListener);
+        if (controls != null && controls.getViewTreeObserver().isAlive()) {
+            controls.getViewTreeObserver().removeOnPreDrawListener(excludeControls);
+        }
         if (camera != null) camera.close(saveCamera);
         removeView(cameraView);
         removeView(controls);

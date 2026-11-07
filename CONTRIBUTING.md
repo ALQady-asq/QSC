@@ -30,7 +30,7 @@ The capture pipeline uses MediaProjection and MediaCodec. CameraX drives camera 
 
 - Compare native-resolution frame pacing during scrolling and annotation on physical devices. Record the codec, target frame rate, actual output rate, and largest frame gap.
 - Test whether the camera overlay and an original camera file can run at the same time at different screen encoder settings. Check both lenses, rotation, pause and resume, and cleanup after cancellation.
-- Verify the floating bar, tile, and pause-only overlays on additional Android and HarmonyOS versions. The pause-only mode avoids a visible black rectangle observed with a secure overlay during capture on the tested MatePad.
+- Verify the floating bar, tile, and pause-only overlays on additional Android and HarmonyOS versions. Capture exclusion uses the non-SDK `SurfaceControl.Transaction.setSkipScreenshot` on our controls window, via Android Hidden API Bypass 6.2. Do not replace this with `FLAG_SECURE`, which produced a black rectangle on the tested MatePad. The bar starts transparent and untouchable until exclusion is applied before its first draw; the flag is reapplied before subsequent draws in case relayout recreated the surface. API failures fall back to pause-only controls with a toast. OEMs may silently ignore the flag: only inspecting a recording confirms exclusion. The Redmi Turbo 4 Pro / HyperOS 3.0 and MatePad 11.5s / HarmonyOS 4.2 remain physical-device test targets, not verified devices.
 - Add Arabic UI translations and test right-to-left layouts at different tablet window widths.
 
 ## Reports and changes

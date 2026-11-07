@@ -38,4 +38,6 @@ QSC تفرّع من **Open Recorder 1.0.3**. يحفظ المستودع تاري�
 
 ---
 
-**English summary.** QSC is a GPL-3.0-only fork of Open Recorder tailored to tablet screen recording, initially tested on Huawei MatePad 11.5 S. It adds a floating recording bar, a resizable camera overlay, a two-pane settings layout, higher-detail native capture profiles, and AAC, Opus, and PCM audio in MP4. See [CONTRIBUTING.md](CONTRIBUTING.md) to build, test, and continue development.
+خيار **Keep bar out of video** الجديد يحاول إبقاء الشريط ظاهرًا لك واستبعاده من الفيديو من دون مستطيل أسود، باستخدام واجهة داخلية قد تختلف حسب النظام. عند عدم توفرها يعود إلى الإظهار أثناء الإيقاف المؤقت ويعرض تنبيهًا. تعطيل **Show bar only when paused** مطلوب لاستخدام الشريط أثناء التسجيل. راجع [تفاصيل التوافق والتجربة](README-MATEPAD.md)؛ لم تُختبر الخاصية بعد على الأجهزة الفعلية المستهدفة.
+
+**English summary.** QSC is a GPL-3.0-only fork of Open Recorder tailored to tablet screen recording, initially tested on Huawei MatePad 11.5 S. It adds a floating recording bar, a resizable camera overlay, a two-pane settings layout, higher-detail native capture profiles, and AAC, Opus, and PCM audio in MP4. The experimental **Keep bar out of video** option requests exclusion of the controls surface while keeping it interactive; unsupported API calls fall back to pause-only controls. See [CONTRIBUTING.md](CONTRIBUTING.md) to build, test, and continue development.

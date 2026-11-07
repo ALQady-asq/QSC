@@ -108,6 +108,12 @@ private data class OpenSourceLibrary(
 
 private val OPEN_SOURCE_LIBRARIES = listOf(
     OpenSourceLibrary(
+        nameRes = R.string.library_hidden_api_bypass,
+        versionRes = R.string.version_hidden_api_bypass,
+        licenseRes = R.string.license_apache_2,
+        websiteRes = R.string.url_hidden_api_bypass,
+    ),
+    OpenSourceLibrary(
         nameRes = R.string.library_activity_compose,
         versionRes = R.string.version_activity_compose,
         licenseRes = R.string.license_apache_2,
