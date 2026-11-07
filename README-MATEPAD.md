@@ -15,8 +15,16 @@
 - يتيح **Audio codec in video** اختيار AAC أو Opus أو PCM بلا فقد. يستخدم Opus ‏48 kHz، ويمكن اختيار 44.1 أو 48 kHz لـAAC وPCM. دعم تشغيل Opus وPCM داخل MP4 يختلف حسب المشغّل.
 - اختر **Native (maximum detail)** مع تعطيل **Force 16:9 with letterboxing** لالتقاط دقة شاشة MatePad 11.5 S الأصلية عند تسجيل الشاشة بالكامل. اختر الاتجاه ومعدل الإطارات من الإعدادات. اضغط **Start recording** ووافق على طلب النظام. تجد الملفات في **Movies/Open Recorder**.
 
+## تحديث 1.2.4
+
+- نسخة النشر تحتفظ بالحزمة الأصلية `com.openrecorder.app.matepad`، مع `versionCode 10009` و`versionName 1.2.4`. لا يتغير اسم مخزن الإعدادات أو مسار التسجيلات. توقيعها بمفتاح الإصدار الأصلي يسمح بتثبيتها كتحديث فوق QSC 1.2.2؛ لا تستخدم APK التطوير الذي يحمل اللاحقة `.test` لهذا الغرض.
+- أضيف **80 Mbps** و**100 Mbps** إلى **Video bitrate**، مع الحفاظ على الخيارات السابقة. إذا كان المرمّز المختار لا يدعم المعدل المطلوب، يُستخدم الحد الذي يعلنه ويظهر هدف الترميز المضبوط مع FPS في إشعار التسجيل. معدل البت الفعلي في الملف يتغير حسب المحتوى والتحكم في المعدل داخل المرمّز.
+- يُطبق استبعاد الشريط مرة لكل طبقة فعلية بدل معاملة متزامنة مع SurfaceFlinger عند كل رسم. يستمر التحقق قبل الرسم، وتُستبعد الطبقة الجديدة عند إعادة إنشائها. إذا لم يوفر النظام معرّف الطبقة، يُحتفظ بالسلوك السابق لحماية الشريط. يقلل هذا العمل المتكرر أثناء فتح بطاقة التحكم وتحديث العداد، من دون تغيير واجهة التحكم.
+- بناء النشر يستخدم R8 وتصغير الموارد، بدل بناء التطوير الكبير. دعم Redmi Turbo 4 Pro / HyperOS 3.0 يعتمد على المرمّز العتادي المتاح وإذن الظهور فوق التطبيقات؛ لم تُقَس معدلات الإطارات أو الحرارة على جهاز Redmi فعلي في هذه البيئة.
+- للبناء بمفتاح التوقيع الأصلي واختبار إمكانية التحديث، راجع [دليل النشر](RELEASING.md).
+
 ## Build
 
-Use JDK 21, SDK Platform 37.0, and Build Tools 36.0.0. Run `./gradlew :app:testDebugUnitTest :app:assembleRelease`. The release APK is unsigned. Use `zipalign` and `apksigner` to prepare an installable package. The optional `development` build uses an application ID suffix so it can coexist with the release.
+Use JDK 21, SDK Platform 37.0, and Build Tools 36.0.0. Run `./gradlew :app:testDebugUnitTest :app:assembleRelease`. Without signing environment variables, the release APK is unsigned. For an installable update signed with the original key, follow [RELEASING.md](RELEASING.md). The optional `development` build uses an application ID suffix so it can coexist with the release.
 
 Camera capture uses AndroidX CameraX. Extended audio tracks use AndroidX Media3, while AAC uses the platform muxer.

@@ -124,6 +124,9 @@
     <string name="video_bitrate_24">24 Mbps</string>
     <string name="video_bitrate_40">40 Mbps</string>
     <string name="video_bitrate_60">60 Mbps</string>
+    <string name="video_bitrate_80">80 Mbps</string>
+    <string name="video_bitrate_100">100 Mbps</string>
+    <string name="notification_recording_target_profile">Target: %1$d fps · %2$s Mbps</string>
     <string name="video_codec_label">Video codec</string>
     <string name="video_codec_h264">H.264</string>
     <string name="video_codec_h265">H.265</string>

@@ -12,7 +12,7 @@ sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
 adb install -r app/build/outputs/apk/development/app-development.apk
 ```
 
-The development APK uses the application ID `com.openrecorder.app.matepad.test`. Release builds use `com.openrecorder.app.matepad` and are unsigned when built with `./gradlew :app:assembleRelease`. For an independently signed release, choose your own application ID and signing key. Android requires the existing certificate to update an installed release under the same ID.
+The development APK uses the application ID `com.openrecorder.app.matepad.test`. Normal release updates retain `com.openrecorder.app.matepad`. Release builds are unsigned unless all four original-key signing environment variables are provided. See [RELEASING.md](RELEASING.md) for signing, CI, certificate verification, and update testing. Android requires the original certificate to update an installed release under the same ID; do not distribute a development-key APK as an update.
 
 ## Where to start
 
@@ -30,7 +30,7 @@ The capture pipeline uses MediaProjection and MediaCodec. CameraX drives camera 
 
 - Compare native-resolution frame pacing during scrolling and annotation on physical devices. Record the codec, target frame rate, actual output rate, and largest frame gap.
 - Test whether the camera overlay and an original camera file can run at the same time at different screen encoder settings. Check both lenses, rotation, pause and resume, and cleanup after cancellation.
-- Verify the floating bar, tile, and pause-only overlays on additional Android and HarmonyOS versions. Capture exclusion uses the non-SDK `SurfaceControl.Transaction.setSkipScreenshot` on our controls window, via Android Hidden API Bypass 6.2. Do not replace this with `FLAG_SECURE`, which produced a black rectangle on the tested MatePad. The bar starts transparent and untouchable until exclusion is applied before its first draw; the flag is reapplied before subsequent draws in case relayout recreated the surface. API failures fall back to pause-only controls with a toast. OEMs may silently ignore the flag: only inspecting a recording confirms exclusion. The Redmi Turbo 4 Pro / HyperOS 3.0 and MatePad 11.5s / HarmonyOS 4.2 remain physical-device test targets, not verified devices.
+- Verify the floating bar, tile, and pause-only overlays on additional Android and HarmonyOS versions. Capture exclusion uses the non-SDK `SurfaceControl.Transaction.setSkipScreenshot` on our controls window, via Android Hidden API Bypass 6.2. Do not replace this with `FLAG_SECURE`, which produced a black rectangle on the tested MatePad. The bar starts transparent and untouchable until exclusion is applied before its first draw. Subsequent draws check the native layer ID and only reapply the synchronous transaction when the surface changes; OEMs without a usable layer ID retain per-draw exclusion. API failures fall back to pause-only controls with a toast. OEMs may silently ignore the flag: only inspecting a recording confirms exclusion. The Redmi Turbo 4 Pro / HyperOS 3.0 and MatePad 11.5s / HarmonyOS 4.2 remain physical-device test targets, not verified devices.
 - Add Arabic UI translations and test right-to-left layouts at different tablet window widths.
 
 ## Reports and changes

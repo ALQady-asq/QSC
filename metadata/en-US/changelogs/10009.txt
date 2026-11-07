@@ -1,0 +1,9 @@
+QSC 1.2.4 keeps the original application ID and supports signing with the original release key for in-place updates.
+
+- Add 80 and 100 Mbps video bitrate targets.
+- Respect the selected encoder's advertised bitrate limits and show the configured bitrate and FPS in the recording notification.
+- Avoid repeated synchronous capture-exclusion transactions on unchanged control surfaces while reapplying exclusion to recreated surfaces.
+- Build the normal update with release code and resource shrinking.
+- Add unsigned CI checks and a signed-release workflow that verifies the original application ID and signing certificate before distribution.
+
+Redmi Turbo 4 Pro / HyperOS 3.0 and MatePad 11.5s / HarmonyOS 4.2 should be checked on the actual devices. Higher selected bitrate is a target, subject to the hardware encoder and content.

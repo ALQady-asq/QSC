@@ -287,6 +287,8 @@ internal fun SettingsScreen(
             context.getString(R.string.video_bitrate_24),
             context.getString(R.string.video_bitrate_40),
             context.getString(R.string.video_bitrate_60),
+            context.getString(R.string.video_bitrate_80),
+            context.getString(R.string.video_bitrate_100),
         )
     }
     val videoCodecOptions = remember(context) {

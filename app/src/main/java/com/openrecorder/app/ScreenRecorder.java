@@ -548,12 +548,17 @@ final class ScreenRecorder {
         Log.i(TAG, "Video profile: canvas=" + size.width + "x" + size.height
                 + ", content=" + size.contentWidth + "x" + size.contentHeight
                 + ", frameRate=" + videoRecorder.getConfiguredFrameRate() + " fps"
-                + ", target=" + size.videoBitrate + " bps"
+                + ", requested=" + size.videoBitrate + " bps"
+                + ", configured=" + videoRecorder.getConfiguredBitrate() + " bps"
                 + (force16By9Letterboxing ? ", 16:9 letterbox" : ""));
     }
 
     int getConfiguredFrameRate() {
         return videoRecorder.getConfiguredFrameRate();
+    }
+
+    int getConfiguredBitrate() {
+        return videoRecorder.getConfiguredBitrate();
     }
 
     private float getSourceRefreshRate() {

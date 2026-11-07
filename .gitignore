@@ -12,3 +12,9 @@ captures/
 *.jks
 *.keystore
 *.p12
+*.jceks
+keystore.properties
+signing.properties
+/signing/
+__pycache__/
+*.pyc

@@ -18,6 +18,8 @@ final class OverlayCaptureExclusion {
     private Method getSurface;
     private Method skipScreenshot;
     private Method applySynchronously;
+    private Method getLayerId;
+    private final SurfaceExclusionState exclusionState = new SurfaceExclusionState();
 
     void apply(View controls) throws ReflectiveOperationException {
         if (getViewRoot == null) {
@@ -26,6 +28,11 @@ final class OverlayCaptureExclusion {
                     "setSkipScreenshot", SurfaceControl.class, boolean.class);
             applySynchronously = method(SurfaceControl.Transaction.class,
                     "apply", boolean.class);
+            try {
+                getLayerId = method(SurfaceControl.class, "getLayerId");
+            } catch (NoSuchMethodException ignored) {
+                // Keep the previous per-draw behavior on OEMs without a stable layer identifier.
+            }
         }
         Object root = getViewRoot.invoke(controls);
         if (root == null) throw new IllegalStateException("Controls window is not attached");
@@ -36,10 +43,20 @@ final class OverlayCaptureExclusion {
         if (surface == null || !surface.isValid()) {
             throw new IllegalStateException("Controls surface is unavailable");
         }
+        int layerId = -1;
+        if (getLayerId != null) {
+            try {
+                layerId = (Integer) getLayerId.invoke(surface);
+            } catch (ReflectiveOperationException | RuntimeException ignored) {
+                getLayerId = null;
+            }
+        }
+        if (!exclusionState.needsApply(layerId)) return;
         try (SurfaceControl.Transaction transaction = new SurfaceControl.Transaction()) {
             skipScreenshot.invoke(transaction, surface, true);
             // Complete before allowing a frame or making the initially transparent window visible.
             applySynchronously.invoke(transaction, true);
+            exclusionState.applied(layerId);
         }
     }
 

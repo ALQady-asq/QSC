@@ -1,0 +1,82 @@
+name: Build original QSC update
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the verified APK as a GitHub release
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          cmdline-tools-version: '16111833'
+          packages: platform-tools
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - name: Install SDK
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0'
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest
+      - name: Prepare original signing key
+        env:
+          QSC_SIGNING_KEYSTORE_BASE64: ${{ secrets.QSC_SIGNING_KEYSTORE_BASE64 }}
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          encoded = os.environ.get('QSC_SIGNING_KEYSTORE_BASE64', '')
+          if not encoded:
+              raise SystemExit('Add the original signing key to QSC_SIGNING_KEYSTORE_BASE64 in repository secrets.')
+          key = Path(os.environ['RUNNER_TEMP']) / 'qsc-original.keystore'
+          key.write_bytes(base64.b64decode(''.join(encoded.split()), validate=True))
+          key.chmod(0o600)
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f'QSC_KEYSTORE_FILE={key}\n')
+          PY
+      - name: Build signed release
+        env:
+          QSC_KEYSTORE_PASSWORD: ${{ secrets.QSC_KEYSTORE_PASSWORD }}
+          QSC_KEY_ALIAS: ${{ secrets.QSC_KEY_ALIAS }}
+          QSC_KEY_PASSWORD: ${{ secrets.QSC_KEY_PASSWORD }}
+        run: ./gradlew --no-configuration-cache :app:assembleRelease
+      - name: Verify original application ID and signing certificate
+        run: |
+          python3 scripts/verify_release.py app/build/outputs/apk/release/app-release.apk
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/QSC-1.2.4.apk
+          sha256sum dist/QSC-1.2.4.apk > dist/SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: QSC-1.2.4-signed-update
+          path: dist/
+      - name: Publish release
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git show-ref --verify --quiet refs/tags/qsc-v1.2.4; then
+            echo 'qsc-v1.2.4 already exists; refusing to overwrite an existing version.' >&2
+            exit 1
+          fi
+          gh release create qsc-v1.2.4 dist/QSC-1.2.4.apk dist/SHA256SUMS \
+            --target "$GITHUB_SHA" --title 'QSC 1.2.4' \
+            --notes-file metadata/en-US/changelogs/10009.txt
+      - name: Remove signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/qsc-original.keystore"
