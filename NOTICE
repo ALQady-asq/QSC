@@ -35,6 +35,11 @@ https://github.com/jordond/materialkolor
 
 The Gradle wrapper files are licensed under the Apache License 2.0.
 
+Android Hidden API Bypass 6.2, Copyright 2021-2025 LSPosed, is licensed
+under the Apache License 2.0. It is used only to access our floating
+controls window's capture-exclusion surface flag:
+https://github.com/LSPosed/AndroidHiddenApiBypass
+
 The complete Apache License 2.0 text for the applicable third-party components
 is in LICENSES/Apache-2.0.txt. Third-party components retain their original
 licenses; the GPL-3.0-only designation above applies to Open Recorder's own

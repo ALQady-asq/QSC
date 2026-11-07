@@ -76,6 +76,7 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
     private Runnable pendingNotificationRestore;
     private volatile boolean paused;
     private volatile int configuredFrameRate;
+    private volatile int configuredBitrate;
     private volatile long recordingStartedAtElapsedRealtime;
     private volatile long pausedAtElapsedRealtime;
     private volatile long totalPausedDurationMs;
@@ -374,6 +375,7 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
         try {
             pendingRecorder.start();
             configuredFrameRate = pendingRecorder.getConfiguredFrameRate();
+            configuredBitrate = pendingRecorder.getConfiguredBitrate();
             recorderStarted.set(true);
             recordingStartedAtElapsedRealtime = SystemClock.elapsedRealtime();
             pausedAtElapsedRealtime = 0L;
@@ -517,7 +519,9 @@ public class RecordingService extends Service implements ScreenRecorder.Listener
                         .setShowWhen(false);
             } else {
                 builder.setContentText(configuredFrameRate > 0
-                                ? getString(R.string.notification_recording_target_fps, configuredFrameRate)
+                                ? getString(R.string.notification_recording_target_profile,
+                                        configuredFrameRate,
+                                        String.format(java.util.Locale.ROOT, "%.1f", configuredBitrate / 1_000_000d))
                                 : getString(R.string.notification_recording_text))
                         .setWhen(System.currentTimeMillis() - getActiveRecordingDurationMs())
                         .setUsesChronometer(true)

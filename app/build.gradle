@@ -3,6 +3,19 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.compose'
 }
 
+// Supply the original signing key through local environment variables or GitHub Secrets.
+// Missing credentials keep the release unsigned; partial credentials are a configuration error.
+def releaseSigning = [
+        storeFile: providers.environmentVariable('QSC_KEYSTORE_FILE').orNull,
+        storePassword: providers.environmentVariable('QSC_KEYSTORE_PASSWORD').orNull,
+        keyAlias: providers.environmentVariable('QSC_KEY_ALIAS').orNull,
+        keyPassword: providers.environmentVariable('QSC_KEY_PASSWORD').orNull,
+]
+def hasReleaseSigning = releaseSigning.values().every { it != null && !it.isEmpty() }
+if (!hasReleaseSigning && releaseSigning.values().any { it != null && !it.isEmpty() }) {
+    throw new GradleException('Provide all four QSC release signing environment variables.')
+}
+
 android {
     namespace 'com.openrecorder.app'
     compileSdk 37
@@ -11,8 +24,19 @@ android {
         applicationId 'com.openrecorder.app.matepad'
         minSdk 29
         targetSdk 36
-        versionCode 10007
-        versionName '1.2.2'
+        versionCode 10009
+        versionName '1.2.4'
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            originalRelease {
+                storeFile file(releaseSigning.storeFile)
+                storePassword releaseSigning.storePassword
+                keyAlias releaseSigning.keyAlias
+                keyPassword releaseSigning.keyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -23,6 +47,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         release {
+            if (hasReleaseSigning) signingConfig signingConfigs.originalRelease
             debuggable false
             minifyEnabled true
             shrinkResources true
@@ -60,6 +85,7 @@ android {
 }
 
 dependencies {
+    implementation 'org.lsposed.hiddenapibypass:hiddenapibypass:6.2'
     implementation 'androidx.activity:activity-compose:1.13.0'
     implementation 'androidx.core:core-ktx:1.17.0'
     implementation 'androidx.media3:media3-muxer:1.11.1'

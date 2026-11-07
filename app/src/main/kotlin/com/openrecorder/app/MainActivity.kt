@@ -880,6 +880,8 @@ class MainActivity : ComponentActivity() {
             RecordingOptions.VIDEO_BITRATE_24_MBPS,
             RecordingOptions.VIDEO_BITRATE_40_MBPS,
             RecordingOptions.VIDEO_BITRATE_60_MBPS,
+            RecordingOptions.VIDEO_BITRATE_80_MBPS,
+            RecordingOptions.VIDEO_BITRATE_100_MBPS,
         )
 
         val VIDEO_RESOLUTIONS = listOf(

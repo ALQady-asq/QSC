@@ -12,6 +12,8 @@ final class RecordingOptions {
     static final int VIDEO_BITRATE_24_MBPS = 24_000_000;
     static final int VIDEO_BITRATE_40_MBPS = 40_000_000;
     static final int VIDEO_BITRATE_60_MBPS = 60_000_000;
+    static final int VIDEO_BITRATE_80_MBPS = 80_000_000;
+    static final int VIDEO_BITRATE_100_MBPS = 100_000_000;
     static final int DEFAULT_VIDEO_BITRATE = VIDEO_BITRATE_AUTO;
 
     static final int VIDEO_RESOLUTION_NATIVE = 0;
@@ -65,7 +67,9 @@ final class RecordingOptions {
                 || value == VIDEO_BITRATE_16_MBPS
                 || value == VIDEO_BITRATE_24_MBPS
                 || value == VIDEO_BITRATE_40_MBPS
-                || value == VIDEO_BITRATE_60_MBPS) {
+                || value == VIDEO_BITRATE_60_MBPS
+                || value == VIDEO_BITRATE_80_MBPS
+                || value == VIDEO_BITRATE_100_MBPS) {
             return value;
         }
         return VIDEO_BITRATE_AUTO;

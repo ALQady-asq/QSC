@@ -79,6 +79,14 @@ final class OverlaySettings {
         preferences.edit().putBoolean("private_controls", enabled).apply();
     }
 
+    boolean excludeControlsFromCapture() {
+        return preferences.getBoolean("exclude_controls_from_capture", true);
+    }
+
+    void setExcludeControlsFromCapture(boolean enabled) {
+        preferences.edit().putBoolean("exclude_controls_from_capture", enabled).apply();
+    }
+
     boolean privateCamera() {
         return preferences.getBoolean("private_camera", false);
     }

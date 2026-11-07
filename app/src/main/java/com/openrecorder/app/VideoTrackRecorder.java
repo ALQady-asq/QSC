@@ -62,6 +62,7 @@ final class VideoTrackRecorder {
     private long sourceToMonotonicOffsetNanos;
     private long lastWrittenPresentationTimeUs = -1L;
     private int configuredFrameRate;
+    private int configuredBitrate;
 
     private final MediaCodec.Callback codecCallback = new MediaCodec.Callback() {
         @Override
@@ -162,6 +163,13 @@ final class VideoTrackRecorder {
             throw new IllegalStateException("Video encoder is not prepared");
         }
         return configuredFrameRate;
+    }
+
+    synchronized int getConfiguredBitrate() {
+        if (!prepared || configuredBitrate <= 0) {
+            throw new IllegalStateException("Video encoder is not prepared");
+        }
+        return configuredBitrate;
     }
 
     synchronized void setOutputTrack(RecordingMuxer.Track outputTrack) {
@@ -362,7 +370,11 @@ final class VideoTrackRecorder {
             format.setInteger(
                     MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-            format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
+            android.util.Range<Integer> bitrateRange = codecInfo.getCapabilitiesForType(mimeType)
+                    .getVideoCapabilities().getBitrateRange();
+            int supportedBitrate = VideoBitratePolicy.supportedTarget(bitrate,
+                    bitrateRange.getLower(), bitrateRange.getUpper());
+            format.setInteger(MediaFormat.KEY_BIT_RATE, supportedBitrate);
             format.setInteger(MediaFormat.KEY_FRAME_RATE, frameRate);
             if (realtime) {
                 // KEY_FRAME_RATE is also the operating rate when priority is real-time.
@@ -380,6 +392,7 @@ final class VideoTrackRecorder {
             codec = candidateCodec;
             inputSurface = candidateSurface;
             configuredFrameRate = frameRate;
+            configuredBitrate = supportedBitrate;
         } catch (Exception error) {
             if (candidateSurface != null) {
                 try {
@@ -403,7 +416,8 @@ final class VideoTrackRecorder {
     private void logConfiguredEncoder(MediaCodecInfo codecInfo, int frameRate) {
         Log.i(TAG, "Encoder " + codecInfo.getName()
                 + " configured at " + width + "x" + height
-                + ", target " + bitrate + " bps, " + frameRate + " fps"
+                + ", requested " + bitrate + " bps, configured " + configuredBitrate
+                + " bps, " + frameRate + " fps"
                 + (codecInfo.isHardwareAccelerated() ? ", hardware" : ""));
         int preferredFrameRate = VideoFrameRatePolicy.resolvePreferredFrameRate(
                 requestedFrameRate,
@@ -411,6 +425,10 @@ final class VideoTrackRecorder {
         if (frameRate != preferredFrameRate) {
             Log.w(TAG, "Requested " + preferredFrameRate + " fps, using configured fallback "
                     + frameRate + " fps");
+        }
+        if (configuredBitrate != bitrate) {
+            Log.w(TAG, "Requested " + bitrate + " bps; encoder limits require "
+                    + configuredBitrate + " bps");
         }
     }
 
@@ -507,7 +525,7 @@ final class VideoTrackRecorder {
         }
         try {
             int negotiatedBitrate = outputFormat.getInteger(MediaFormat.KEY_BIT_RATE);
-            Log.i(TAG, "Encoder bitrate target=" + bitrate
+            Log.i(TAG, "Encoder bitrate requested=" + bitrate + " bps, configured=" + configuredBitrate
                     + " bps, negotiated=" + negotiatedBitrate
                     + " bps; vendor rate control remains active");
         } catch (ClassCastException error) {

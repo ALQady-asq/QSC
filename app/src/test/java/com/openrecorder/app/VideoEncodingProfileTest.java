@@ -152,6 +152,8 @@ public final class VideoEncodingProfileTest {
                 RecordingOptions.VIDEO_BITRATE_24_MBPS,
                 RecordingOptions.VIDEO_BITRATE_40_MBPS,
                 RecordingOptions.VIDEO_BITRATE_60_MBPS,
+                RecordingOptions.VIDEO_BITRATE_80_MBPS,
+                RecordingOptions.VIDEO_BITRATE_100_MBPS,
         };
 
         for (int bitrate : fixedBitrates) {

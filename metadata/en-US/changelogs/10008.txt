@@ -1,0 +1,1 @@
+Add an experimental Keep bar out of video option, enabled by default. The floating controls remain visible and interactive while their surface is excluded from recording on supported systems. If exclusion is unavailable, show a notice and fall back to pause-only controls. Keep the bar available in full-screen apps. Device compatibility must be checked with a short test recording.
